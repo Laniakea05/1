@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Прохождение теста</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #f8f9fa;
+            color: #333;
+        }
+        .header {
+            background: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav-links a {
+            margin-left: 20px;
+            color: #3498db;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            transition: background 0.3s ease;
+        }
+        .nav-links a:hover {
+            background: #ecf0f1;
+        }
+        .test-header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .test-header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .test-meta {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+            color: #7f8c8d;
+        }
+        .progress-bar {
+            background: #ecf0f1;
+            height: 8px;
+            border-radius: 4px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        .progress {
+            background: #27ae60;
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        .question-card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .question-number {
+            color: #3498db;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .question-text {
+            font-size: 1.2em;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .option {
+            padding: 15px;
+            border: 2px solid #ecf0f1;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .option:hover {
+            border-color: #3498db;
+            background: #f8f9fa;
+        }
+        .option.selected {
+            border-color: #27ae60;
+            background: #d5f4e6;
+        }
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+        .btn {
+            padding: 12px 25px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s ease;
+        }
+        .btn:hover {
+            background: #2980b9;
+        }
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .btn.submit {
+            background: #27ae60;
+        }
+        .btn.submit:hover {
+            background: #219a52;
+        }
+        .timer {
+            background: #e74c3c;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="nav">
+                <h1>🧪 Прохождение теста</h1>
+                <div class="nav-links">
+                    <div class="timer" id="timer">⏱️ 15:00</div>
+                    <a href="/tests">← Назад к тестам</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="test-header">
+            <h1 id="testTitle">Тест на стрессоустойчивость</h1>
+            <p id="testDescription">Оценка способности работать в стрессовых ситуациях</p>
+            <div class="test-meta">
+                <span>⏱️ <span id="testTime">15</span> минут</span>
+                <span>❓ <span id="totalQuestions">3</span> вопросов</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress" id="progress" style="width: 0%"></div>
+            </div>
+            <div>Вопрос <span id="currentQuestion">1</span> из <span id="totalQuestionsCount">3</span></div>
+        </div>
+
+        <form id="testForm">
+            <div class="question-card">
+                <div class="question-number">Вопрос <span id="questionNumber">1</span></div>
+                <div class="question-text" id="questionText">Как вы реагируете, когда обнаруживаете попытку взлома системы?</div>
+                
+                <div class="options" id="optionsContainer">
+                    <!-- Опции будут добавляться динамически -->
+                </div>
+
+                <div class="navigation">
+                    <button type="button" class="btn" id="prevBtn" onclick="previousQuestion()" disabled>← Назад</button>
+                    <button type="button" class="btn" id="nextBtn" onclick="nextQuestion()">Далее →</button>
+                    <button type="button" class="btn submit" id="submitBtn" onclick="submitTest()" style="display: none;">Завершить тест</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        let currentQuestionIndex = 0;
+        let answers = {};
+        let testData = {};
+        let timeLeft = 15 * 60; // 15 минут в секундах
+
+        // Данные теста (временные, потом заменим на API)
+        const testQuestions = [
+            {
+                id: 1,
+                text: "Как вы реагируете, когда обнаруживаете попытку взлома системы?",
+                options: [
+                    "Паникую и теряю контроль над ситуацией",
+                    "Спокойно анализирую ситуацию и действую по инструкции", 
+                    "Немедленно сообщаю руководству и жду указаний",
+                    "Пытаюсь скрыть инцидент и разобраться самостоятельно"
+                ]
+            },
+            {
+                id: 2, 
+                text: "При высокой рабочей нагрузке вы:",
+                options: [
+                    "Эффективно планируете задачи и распределяете время",
+                    "Работаете в состоянии стресса, что снижает эффективность",
+                    "Откладываете сложные задачи на потом",
+                    "Просите помощи у коллег или руководства"
+                ]
+            },
+            {
+                id: 3,
+                text: "Ваша реакция на критику работы:",
+                options: [
+                    "Принимаю к сведению и работаю над ошибками",
+                    "Защищаюсь и оправдываю свои действия", 
+                    "Игнорирую, считаю что критик некомпетентен",
+                    "Анализирую критику и делаю выводы для улучшения"
+                ]
+            }
+        ];
+
+        function startTimer() {
+            const timerInterval = setInterval(() => {
+                timeLeft--;
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                document.getElementById('timer').textContent = 
+                    `⏱️ ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    submitTest();
+                }
+            }, 1000);
+        }
+
+        function loadQuestion(index) {
+            const question = testQuestions[index];
+            document.getElementById('questionNumber').textContent = index + 1;
+            document.getElementById('questionText').textContent = question.text;
+            
+            const optionsContainer = document.getElementById('optionsContainer');
+            optionsContainer.innerHTML = '';
+            
+            question.options.forEach((option, optionIndex) => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = `option ${answers[question.id] === optionIndex ? 'selected' : ''}`;
+                optionDiv.textContent = option;
+                optionDiv.onclick = () => selectOption(question.id, optionIndex);
+                optionsContainer.appendChild(optionDiv);
+            });
+
+            // Обновляем прогресс
+            const progress = ((index + 1) / testQuestions.length) * 100;
+            document.getElementById('progress').style.width = `${progress}%`;
+            document.getElementById('currentQuestion').textContent = index + 1;
+
+            // Управление кнопками
+            document.getElementById('prevBtn').disabled = index === 0;
+            document.getElementById('nextBtn').style.display = index === testQuestions.length - 1 ? 'none' : 'block';
+            document.getElementById('submitBtn').style.display = index === testQuestions.length - 1 ? 'block' : 'none';
+        }
+
+        function selectOption(questionId, optionIndex) {
+            answers[questionId] = optionIndex;
+            loadQuestion(currentQuestionIndex); // Перезагружаем для обновления стилей
+        }
+
+        function nextQuestion() {
+            if (currentQuestionIndex < testQuestions.length - 1) {
+                currentQuestionIndex++;
+                loadQuestion(currentQuestionIndex);
+            }
+        }
+
+        function previousQuestion() {
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                loadQuestion(currentQuestionIndex);
+            }
+        }
+
+        function submitTest() {
+            if (Object.keys(answers).length !== testQuestions.length) {
+                if (!confirm('Вы ответили не на все вопросы. Завершить тест?')) {
+                    return;
+                }
+            }
+
+            const submission = {
+                test_id: 1,
+                answers: answers
+            };
+
+            fetch('/api/tests/1/submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify(submission)
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(`Тест завершен! Ваш результат: ${data.result.score}%`);
+                window.location.href = '/dashboard';
+            })
+            .catch(error => {
+                alert('Ошибка при отправке теста: ' + error.message);
+            });
+        }
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', function() {
+            startTimer();
+            loadQuestion(0);
+            document.getElementById('totalQuestions').textContent = testQuestions.length;
+            document.getElementById('totalQuestionsCount').textContent = testQuestions.length;
+        });
+    </script>
+</body>
+</html>

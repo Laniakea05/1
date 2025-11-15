@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Доступные тесты</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #f8f9fa;
+            color: #333;
+        }
+        .header {
+            background: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav h1 {
+            color: #2c3e50;
+        }
+        .nav-links a {
+            margin-left: 20px;
+            color: #3498db;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            transition: background 0.3s ease;
+        }
+        .nav-links a:hover {
+            background: #ecf0f1;
+        }
+        .tests-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        .test-card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        .test-card:hover {
+            transform: translateY(-5px);
+        }
+        .test-card h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+        .test-card p {
+            color: #7f8c8d;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .test-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #95a5a6;
+        }
+        .btn {
+            padding: 12px 25px;
+            background: #27ae60;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s ease;
+        }
+        .btn:hover {
+            background: #219a52;
+        }
+        .btn.secondary {
+            background: #3498db;
+        }
+        .btn.secondary:hover {
+            background: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="nav">
+                <h1>🧪 Психологические тесты</h1>
+                <div class="nav-links">
+                    <a href="/dashboard">👤 Кабинет</a>
+                    <a href="/">🏠 Главная</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div style="background: white; padding: 25px; border-radius: 10px; margin-bottom: 30px;">
+            <h2>Доступные тесты</h2>
+            <p>Выберите тест для прохождения. Каждый тест поможет оценить важные психологические качества для работы в сфере информационной безопасности.</p>
+        </div>
+
+        <div class="tests-grid">
+            <div class="test-card">
+                <h3>🧠 Тест на стрессоустойчивость</h3>
+                <p>Оценка способности работать в стрессовых ситуациях, что критично для специалистов по информационной безопасности. Тест включает вопросы о реакции на нештатные ситуации и рабочую нагрузку.</p>
+                <div class="test-meta">
+                    <span>⏱️ 15 минут</span>
+                    <span>❓ 10 вопросов</span>
+                    <span>🎯 Для всех</span>
+                </div>
+                <button class="btn" onclick="startTest(1)">Начать тест</button>
+            </div>
+
+            <div class="test-card">
+                <h3>🔍 Тест на внимание</h3>
+                <p>Проверка способности к концентрации и вниманию к деталям. Особенно важно для анализа логов и выявления аномалий в системах безопасности.</p>
+                <div class="test-meta">
+                    <span>⏱️ 20 минут</span>
+                    <span>❓ 15 вопросов</span>
+                    <span>🎯 Для аналитиков</span>
+                </div>
+                <button class="btn secondary">Скоро доступно</button>
+            </div>
+
+            <div class="test-card">
+                <h3>💭 Аналитическое мышление</h3>
+                <p>Оценка логического и аналитического мышления, необходимого для расследования инцидентов информационной безопасности.</p>
+                <div class="test-meta">
+                    <span>⏱️ 25 минут</span>
+                    <span>❓ 12 вопросов</span>
+                    <span>🎯 Для исследователей</span>
+                </div>
+                <button class="btn secondary">Скоро доступно</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function startTest(testId) {
+            // Проверяем авторизацию
+            const token = localStorage.getItem('token');
+            if (!token) {
+                if (confirm('Для прохождения теста необходимо войти в систему. Перейти к авторизации?')) {
+                    window.location.href = '/login';
+                }
+                return;
+            }
+            window.location.href = '/test/' + testId;
+        }
+
+        // Загружаем список тестов с API
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/api/tests')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Available tests:', data);
+                })
+                .catch(error => {
+                    console.log('Error loading tests:', error);
+                });
+        });
+    </script>
+</body>
+</html>

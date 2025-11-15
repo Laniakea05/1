@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход в систему</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo h1 {
+            color: #2c3e50;
+            font-size: 1.8em;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #ecf0f1;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        .links {
+            text-align: center;
+            margin-top: 25px;
+        }
+        .links a {
+            color: #3498db;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+        .links a:hover {
+            text-decoration: underline;
+        }
+        #message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .test-accounts {
+            margin-top: 25px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .test-accounts h4 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">
+            <h1>🔐 Вход в систему</h1>
+        </div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label>📧 Email:</label>
+                <input type="email" name="email" required placeholder="Введите ваш email">
+            </div>
+            <div class="form-group">
+                <label>🔒 Пароль:</label>
+                <input type="password" name="password" required placeholder="Введите пароль">
+            </div>
+            <button type="submit">Войти в систему</button>
+        </form>
+
+        <div class="test-accounts">
+            <h4>Тестовые аккаунты:</h4>
+            <p><strong>Админ:</strong> admin@psycho.test / admin123</p>
+            <p><strong>Пользователь:</strong> user@test.ru / user123</p>
+        </div>
+
+        <div class="links">
+            <a href="/">🏠 На главную</a> | 
+            <a href="/register">📝 Регистрация</a>
+        </div>
+
+        <div id="message"></div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = {
+                email: formData.get('email'),
+                password: formData.get('password')
+            };
+
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = '<p style="color: #3498db;">⏳ Вход выполняется...</p>';
+
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.token) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    messageDiv.innerHTML = '<p style="color: #27ae60;">✅ Вход успешен! Перенаправление...</p>';
+                    setTimeout(() => window.location.href = '/dashboard', 1500);
+                } else {
+                    messageDiv.innerHTML = `<p style="color: #e74c3c;">❌ ${data.error || 'Ошибка входа'}</p>`;
+                }
+            })
+            .catch(error => {
+                messageDiv.innerHTML = '<p style="color: #e74c3c;">❌ Ошибка сети или сервера</p>';
+            });
+        });
+
+        // Автозаполнение для тестирования
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('test') === 'admin') {
+                document.querySelector('input[name="email"]').value = 'admin@psycho.test';
+                document.querySelector('input[name="password"]').value = 'admin123';
+            } else if (urlParams.get('test') === 'user') {
+                document.querySelector('input[name="email"]').value = 'user@test.ru';
+                document.querySelector('input[name="password"]').value = 'user123';
+            }
+        });
+    </script>
+</body>
+</html>
