@@ -22,7 +22,7 @@
             margin-bottom: 30px;
         }
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 0 20px;
         }
@@ -56,12 +56,14 @@
             display: flex;
             border-bottom: 2px solid #ecf0f1;
             margin-bottom: 25px;
+            flex-wrap: wrap;
         }
         .tab {
             padding: 12px 25px;
             cursor: pointer;
             border-bottom: 3px solid transparent;
             transition: all 0.3s ease;
+            white-space: nowrap;
         }
         .tab.active {
             border-bottom-color: #3498db;
@@ -82,14 +84,20 @@
         }
         .stat-card {
             background: #f8f9fa;
-            padding: 20px;
+            padding: 25px;
             border-radius: 8px;
             text-align: center;
+            border-left: 4px solid #3498db;
         }
         .stat-number {
-            font-size: 2em;
+            font-size: 2.5em;
             font-weight: bold;
             color: #3498db;
+            margin-bottom: 10px;
+        }
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 0.9em;
         }
         .btn {
             padding: 10px 20px;
@@ -100,6 +108,9 @@
             cursor: pointer;
             margin: 5px;
             transition: background 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
         }
         .btn:hover {
             background: #2980b9;
@@ -116,6 +127,12 @@
         .btn.success:hover {
             background: #219a52;
         }
+        .btn.warning {
+            background: #f39c12;
+        }
+        .btn.warning:hover {
+            background: #e67e22;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -129,7 +146,40 @@
         th {
             background: #f8f9fa;
             font-weight: bold;
+            color: #2c3e50;
         }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+        .error {
+            background: #e74c3c;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
+        }
+        .actions {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        .state-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .state-excellent { background: #d5f4e6; color: #27ae60; }
+        .state-good { background: #d6eaf8; color: #3498db; }
+        .state-satisfactory { background: #fcf3cf; color: #f39c12; }
+        .state-warning { background: #fdebd0; color: #e67e22; }
+        .state-critical { background: #fadbd8; color: #e74c3c; }
     </style>
 </head>
 <body>
@@ -158,46 +208,46 @@
 
             <!-- Дашборд -->
             <div id="dashboard-tab" class="tab-content active">
-                <h2>Общая статистика</h2>
+                <h2>Общая статистика системы</h2>
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-number" id="totalUsers">0</div>
-                        <div>Всего пользователей</div>
+                        <div class="stat-label">Всего пользователей</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-number" id="totalTests">0</div>
-                        <div>Пройдено тестов</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="avgScore">0%</div>
-                        <div>Средний балл</div>
+                        <div class="stat-label">Пройдено тестов</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-number" id="activeToday">0</div>
-                        <div>Активных сегодня</div>
+                        <div class="stat-label">Активных сегодня</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="averageState">-</div>
+                        <div class="stat-label">Среднее состояние</div>
                     </div>
                 </div>
+                <button class="btn" onclick="loadAdminStats()">🔄 Обновить статистику</button>
             </div>
 
             <!-- Пользователи -->
             <div id="users-tab" class="tab-content">
                 <h2>Управление пользователями</h2>
                 <button class="btn" onclick="loadUsers()">🔄 Обновить</button>
-                <table>
+                <div id="usersLoading" class="loading">Загрузка пользователей...</div>
+                <table id="usersTable" style="display: none;">
                     <thead>
                         <tr>
                             <th>ID</th>
                             <th>Имя</th>
                             <th>Email</th>
                             <th>Роль</th>
+                            <th>Тестов</th>
                             <th>Дата регистрации</th>
                             <th>Действия</th>
                         </tr>
                     </thead>
-                    <tbody id="usersTable">
-                        <tr>
-                            <td colspan="6">Загрузка данных...</td>
-                        </tr>
+                    <tbody id="usersTableBody">
                     </tbody>
                 </table>
             </div>
@@ -206,29 +256,21 @@
             <div id="tests-tab" class="tab-content">
                 <h2>Управление тестами</h2>
                 <button class="btn success" onclick="createTest()">➕ Создать тест</button>
-                <table>
+                <button class="btn" onclick="loadTests()">🔄 Обновить</button>
+                <div id="testsLoading" class="loading">Загрузка тестов...</div>
+                <table id="testsTable" style="display: none;">
                     <thead>
                         <tr>
                             <th>ID</th>
                             <th>Название</th>
                             <th>Описание</th>
-                            <th>Время</th>
+                            <th>Вопросов</th>
                             <th>Статус</th>
+                            <th>Дата создания</th>
                             <th>Действия</th>
                         </tr>
                     </thead>
-                    <tbody id="testsTable">
-                        <tr>
-                            <td>1</td>
-                            <td>Тест на стрессоустойчивость</td>
-                            <td>Оценка способности работать в стрессовых ситуациях</td>
-                            <td>15 мин</td>
-                            <td>✅ Активен</td>
-                            <td>
-                                <button class="btn">✏️</button>
-                                <button class="btn danger">🗑️</button>
-                            </td>
-                        </tr>
+                    <tbody id="testsTableBody">
                     </tbody>
                 </table>
             </div>
@@ -236,20 +278,20 @@
             <!-- Результаты -->
             <div id="results-tab" class="tab-content">
                 <h2>Результаты тестирования</h2>
-                <table>
+                <button class="btn" onclick="loadResults()">🔄 Обновить</button>
+                <div id="resultsLoading" class="loading">Загрузка результатов...</div>
+                <table id="resultsTable" style="display: none;">
                     <thead>
                         <tr>
+                            <th>ID</th>
                             <th>Пользователь</th>
                             <th>Тест</th>
                             <th>Результат</th>
+                            <th>Состояние</th>
                             <th>Дата</th>
-                            <th>Действия</th>
                         </tr>
                     </thead>
-                    <tbody id="resultsTable">
-                        <tr>
-                            <td colspan="5">Данные результатов появятся здесь</td>
-                        </tr>
+                    <tbody id="resultsTableBody">
                     </tbody>
                 </table>
             </div>
@@ -284,34 +326,251 @@
             // Показываем выбранную вкладку
             document.getElementById(tabName + '-tab').classList.add('active');
             event.target.classList.add('active');
+
+            // Загружаем данные для вкладки
+            switch(tabName) {
+                case 'dashboard':
+                    loadAdminStats();
+                    break;
+                case 'users':
+                    loadUsers();
+                    break;
+                case 'tests':
+                    loadTests();
+                    break;
+                case 'results':
+                    loadResults();
+                    break;
+            }
         }
 
+        // Загрузка статистики
+        function loadAdminStats() {
+            fetch('/api/admin/stats', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Ошибка загрузки статистики');
+                return response.json();
+            })
+            .then(data => {
+                const stats = data.stats;
+                document.getElementById('totalUsers').textContent = stats.total_users;
+                document.getElementById('totalTests').textContent = stats.total_tests;
+                document.getElementById('activeToday').textContent = stats.active_today;
+                document.getElementById('averageState').textContent = stats.average_state;
+            })
+            .catch(error => {
+                console.error('Error loading stats:', error);
+                alert('Ошибка загрузки статистики');
+            });
+        }
+
+        // Загрузка пользователей
         function loadUsers() {
-            // Заглушка для загрузки пользователей
-            document.getElementById('usersTable').innerHTML = `
-                <tr>
-                    <td>1</td>
-                    <td>Администратор Системы</td>
-                    <td>admin@psycho.test</td>
-                    <td><span style="color: #e74c3c;">admin</span></td>
-                    <td>2024-11-13</td>
-                    <td>-</td>
-                </tr>
-                <tr>
-                    <td>2</td>
-                    <td>Тестовый Пользователь</td>
-                    <td>user@test.ru</td>
-                    <td><span style="color: #3498db;">user</span></td>
-                    <td>2024-11-13</td>
-                    <td>
-                        <button class="btn danger">Заблокировать</button>
-                    </td>
-                </tr>
-            `;
+            document.getElementById('usersLoading').style.display = 'block';
+            document.getElementById('usersTable').style.display = 'none';
+
+            fetch('/api/admin/users', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Ошибка загрузки пользователей');
+                return response.json();
+            })
+            .then(data => {
+                const users = data.users;
+                const tbody = document.getElementById('usersTableBody');
+                tbody.innerHTML = '';
+
+                users.forEach(user => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${user.id}</td>
+                        <td>${user.full_name}</td>
+                        <td>${user.email}</td>
+                        <td><span style="color: ${user.role === 'admin' ? '#e74c3c' : '#3498db'}">${user.role}</span></td>
+                        <td>${user.tests_count}</td>
+                        <td>${user.created_at}</td>
+                        <td class="actions">
+                            ${user.role !== 'admin' ? `<button class="btn danger" onclick="blockUser(${user.id})">Заблокировать</button>` : ''}
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                document.getElementById('usersLoading').style.display = 'none';
+                document.getElementById('usersTable').style.display = 'table';
+            })
+            .catch(error => {
+                console.error('Error loading users:', error);
+                document.getElementById('usersLoading').innerHTML = 'Ошибка загрузки пользователей';
+            });
         }
 
+        // Блокировка пользователя
+        function blockUser(userId) {
+            if (!confirm('Вы уверены, что хотите заблокировать этого пользователя?')) {
+                return;
+            }
+
+            fetch(`/api/admin/users/${userId}/block`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Ошибка блокировки пользователя');
+                return response.json();
+            })
+            .then(data => {
+                alert('Пользователь заблокирован');
+                loadUsers(); // Обновляем список
+            })
+            .catch(error => {
+                console.error('Error blocking user:', error);
+                alert('Ошибка блокировки пользователя');
+            });
+        }
+
+        // Загрузка тестов
+        function loadTests() {
+            document.getElementById('testsLoading').style.display = 'block';
+            document.getElementById('testsTable').style.display = 'none';
+
+            fetch('/api/admin/tests', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Ошибка загрузки тестов');
+                return response.json();
+            })
+            .then(data => {
+                const tests = data.tests;
+                const tbody = document.getElementById('testsTableBody');
+                tbody.innerHTML = '';
+
+                tests.forEach(test => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${test.id}</td>
+                        <td>${test.title}</td>
+                        <td>${test.description || '-'}</td>
+                        <td>${test.questions_count}</td>
+                        <td>${test.is_active ? '✅ Активен' : '❌ Неактивен'}</td>
+                        <td>${test.created_at}</td>
+                        <td class="actions">
+                            <button class="btn warning" onclick="editTest(${test.id})">✏️ Редактировать</button>
+                            <button class="btn danger" onclick="deleteTest(${test.id})">🗑️ Удалить</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                document.getElementById('testsLoading').style.display = 'none';
+                document.getElementById('testsTable').style.display = 'table';
+            })
+            .catch(error => {
+                console.error('Error loading tests:', error);
+                document.getElementById('testsLoading').innerHTML = 'Ошибка загрузки тестов';
+            });
+        }
+
+        // Удаление теста
+        function deleteTest(testId) {
+            if (!confirm('Вы уверены, что хотите удалить этот тест? Все результаты также будут удалены.')) {
+                return;
+            }
+
+            fetch(`/api/admin/tests/${testId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Ошибка удаления теста');
+                return response.json();
+            })
+            .then(data => {
+                alert('Тест удален');
+                loadTests(); // Обновляем список
+            })
+            .catch(error => {
+                console.error('Error deleting test:', error);
+                alert('Ошибка удаления теста');
+            });
+        }
+
+        // Редактирование теста
+        function editTest(testId) {
+            window.location.href = `/admin/test-edit?id=${testId}`;
+            // window.location.href = `/admin/test-edit/${testId}`;
+        }
+
+        // Создание теста
         function createTest() {
-            alert('Функция создания теста будет реализована в следующей версии');
+            window.location.href = '/admin/test-edit';
+            // window.location.href = '/admin/test-create';
+        }
+
+        // Загрузка результатов
+        function loadResults() {
+            document.getElementById('resultsLoading').style.display = 'block';
+            document.getElementById('resultsTable').style.display = 'none';
+
+            fetch('/api/admin/results', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Ошибка загрузки результатов');
+                return response.json();
+            })
+            .then(data => {
+                const results = data.results;
+                const tbody = document.getElementById('resultsTableBody');
+                tbody.innerHTML = '';
+
+                results.forEach(result => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${result.id}</td>
+                        <td>${result.user_name}<br><small>${result.user_email}</small></td>
+                        <td>${result.test_title}</td>
+                        <td>${result.score}<br><small>${result.percentage}</small></td>
+                        <td><span class="state-badge ${getStateClass(result.interpretation)}">${result.interpretation}</span></td>
+                        <td>${result.completed_at}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                document.getElementById('resultsLoading').style.display = 'none';
+                document.getElementById('resultsTable').style.display = 'table';
+            })
+            .catch(error => {
+                console.error('Error loading results:', error);
+                document.getElementById('resultsLoading').innerHTML = 'Ошибка загрузки результатов';
+            });
+        }
+
+        // Вспомогательная функция для определения класса состояния
+        function getStateClass(interpretation) {
+            if (interpretation.includes('Отличное')) return 'state-excellent';
+            if (interpretation.includes('Хорошее')) return 'state-good';
+            if (interpretation.includes('Удовлетворительное')) return 'state-satisfactory';
+            if (interpretation.includes('требует внимания')) return 'state-warning';
+            if (interpretation.includes('Критическое')) return 'state-critical';
+            return 'state-satisfactory';
         }
 
         function logout() {
@@ -320,14 +579,9 @@
             window.location.href = '/login';
         }
 
-        // Загрузка статистики
+        // Инициализация
         document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(() => {
-                document.getElementById('totalUsers').textContent = '2';
-                document.getElementById('totalTests').textContent = '5';
-                document.getElementById('avgScore').textContent = '76%';
-                document.getElementById('activeToday').textContent = '1';
-            }, 1000);
+            loadAdminStats();
         });
     </script>
 </body>

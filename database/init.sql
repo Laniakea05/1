@@ -11,6 +11,7 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(255) NOT NULL,
     role VARCHAR(50) DEFAULT 'user',
+    is_blocked BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -57,6 +58,7 @@ CREATE INDEX idx_test_results_user_id ON test_results(user_id);
 CREATE INDEX idx_test_results_test_id ON test_results(test_id);
 CREATE INDEX idx_test_questions_test_id ON test_questions(test_id);
 CREATE INDEX idx_test_results_completed_at ON test_results(completed_at);
+CREATE INDEX idx_users_is_blocked ON users(is_blocked);
 
 -- Пример теста с весами ответов от 1 до 5
 INSERT INTO psychological_tests (title, description, instructions, estimated_time) 
@@ -176,6 +178,7 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- Создаем администратора и тестового пользователя с правильными хешами для admin123 и user123
+-- Пароли хешированы с помощью bcrypt (стоимость 10)
 INSERT INTO users (email, password_hash, full_name, role) VALUES 
 ('admin@psycho.test', '$2a$10$r3.6uYF5c5wL8U5nJ5kZz.A5u5wY5zY5wY5zY5wY5zY5wY5zY5wY', 'Администратор Системы', 'admin'),
 ('user@test.ru', '$2a$10$r3.6uYF5c5wL8U5nJ5kZz.A5u5wY5zY5wY5zY5wY5zY5wY5zY5wY', 'Тестовый Пользователь', 'user')
@@ -194,6 +197,7 @@ COMMENT ON TABLE psychological_tests IS 'Таблица психологичес
 COMMENT ON TABLE test_questions IS 'Таблица вопросов тестов с вариантами ответов и весами';
 COMMENT ON TABLE test_results IS 'Таблица результатов прохождения тестов';
 
+COMMENT ON COLUMN users.is_blocked IS 'Флаг блокировки пользователя';
 COMMENT ON COLUMN test_questions.options IS 'JSON массив объектов с текстом ответа и весом (1-5)';
 COMMENT ON COLUMN test_results.interpretation IS 'Текстовая интерпретация результата теста';
 COMMENT ON COLUMN test_results.recommendation IS 'Рекомендации по результатам тестирования';

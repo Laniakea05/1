@@ -33,3 +33,7 @@ func TestResultPage(c *gin.Context) {
 func AdminPage(c *gin.Context) {
 	c.HTML(200, "admin.html", gin.H{})
 }
+
+func TestEditPage(c *gin.Context) {
+	c.HTML(200, "test-edit.html", gin.H{})
+}

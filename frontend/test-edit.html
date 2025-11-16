@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактирование теста</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #f8f9fa;
+            color: #333;
+        }
+        .header {
+            background: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav-links a {
+            margin-left: 20px;
+            color: #3498db;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            transition: background 0.3s ease;
+        }
+        .nav-links a:hover {
+            background: #ecf0f1;
+        }
+        .form-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 25px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ecf0f1;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        .question-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3498db;
+        }
+        .question-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .option-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        .option-input {
+            flex: 1;
+        }
+        .weight-input {
+            width: 80px;
+        }
+        .btn {
+            padding: 12px 25px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s ease;
+            margin-right: 10px;
+        }
+        .btn:hover {
+            background: #2980b9;
+        }
+        .btn.success {
+            background: #27ae60;
+        }
+        .btn.success:hover {
+            background: #219a52;
+        }
+        .btn.danger {
+            background: #e74c3c;
+        }
+        .btn.danger:hover {
+            background: #c0392b;
+        }
+        .btn.warning {
+            background: #f39c12;
+        }
+        .btn.warning:hover {
+            background: #e67e22;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        .section-title {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="nav">
+                <h1>✏️ Редактирование теста</h1>
+                <div class="nav-links">
+                    <a href="/admin">← Назад к админ-панели</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="form-container">
+            <h2 class="section-title">Основная информация</h2>
+            <div class="form-group">
+                <label for="testTitle">Название теста:</label>
+                <input type="text" id="testTitle" placeholder="Введите название теста">
+            </div>
+            <div class="form-group">
+                <label for="testDescription">Описание теста:</label>
+                <textarea id="testDescription" placeholder="Введите описание теста"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="testInstructions">Инструкции:</label>
+                <textarea id="testInstructions" placeholder="Введите инструкции для прохождения теста"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="testTime">Примерное время прохождения (минут):</label>
+                <input type="number" id="testTime" value="15" min="1" max="60">
+            </div>
+        </div>
+
+        <div class="form-container">
+            <h2 class="section-title">Вопросы теста</h2>
+            <div id="questionsContainer">
+                <div class="loading">Загрузка вопросов...</div>
+            </div>
+            <button class="btn success" onclick="addQuestion()">➕ Добавить вопрос</button>
+        </div>
+
+        <div class="actions">
+            <button class="btn success" onclick="saveTest()">💾 Сохранить тест</button>
+            <button class="btn danger" onclick="cancelEdit()">❌ Отмена</button>
+        </div>
+    </div>
+
+    <script>
+        let testId = null;
+        let questions = [];
+
+        // Шаблон нового вопроса
+        const newQuestionTemplate = {
+            id: null,
+            question_text: '',
+            question_type: 'multiple_choice',
+            options: [
+                { text: '', weight: 1 },
+                { text: '', weight: 2 },
+                { text: '', weight: 3 },
+                { text: '', weight: 4 },
+                { text: '', weight: 5 }
+            ],
+            weight: 1.0,
+            order_index: 0
+        };
+
+        // Загрузка данных теста
+        function loadTestData() {
+            const urlParams = new URLSearchParams(window.location.search);
+            testId = urlParams.get('id');
+
+            if (!testId) {
+                // Создание нового теста
+                initializeNewTest();
+                return;
+            }
+
+            // Загрузка существующего теста
+            fetch(`/api/admin/tests/${testId}/edit`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Тест не найден');
+                return response.json();
+            })
+            .then(data => {
+                const test = data.test;
+                document.getElementById('testTitle').value = test.title;
+                document.getElementById('testDescription').value = test.description || '';
+                document.getElementById('testInstructions').value = test.instructions || '';
+                document.getElementById('testTime').value = test.estimated_time || 15;
+                
+                questions = test.questions || [];
+                renderQuestions();
+            })
+            .catch(error => {
+                console.error('Error loading test:', error);
+                alert('Ошибка загрузки теста: ' + error.message);
+                window.location.href = '/admin';
+            });
+        }
+
+        function initializeNewTest() {
+            document.getElementById('testTitle').value = '';
+            document.getElementById('testDescription').value = '';
+            document.getElementById('testInstructions').value = '';
+            document.getElementById('testTime').value = 15;
+            
+            questions = [];
+            addQuestion(); // Добавляем первый вопрос по умолчанию
+        }
+
+        function renderQuestions() {
+            const container = document.getElementById('questionsContainer');
+            
+            if (questions.length === 0) {
+                container.innerHTML = '<div class="loading">Нет вопросов</div>';
+                return;
+            }
+
+            let html = '';
+            questions.forEach((question, index) => {
+                html += `
+                    <div class="question-card" data-index="${index}">
+                        <div class="question-header">
+                            <h3>Вопрос ${index + 1}</h3>
+                            <button class="btn danger" onclick="removeQuestion(${index})">🗑️ Удалить</button>
+                        </div>
+                        <div class="form-group">
+                            <label>Текст вопроса:</label>
+                            <textarea oninput="updateQuestionText(${index}, this.value)" 
+                                      placeholder="Введите текст вопроса">${question.question_text}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Варианты ответов (вес от 1 до 5):</label>
+                `;
+
+                question.options.forEach((option, optionIndex) => {
+                    html += `
+                        <div class="option-row">
+                            <input type="text" class="option-input" 
+                                   value="${option.text}"
+                                   oninput="updateOptionText(${index}, ${optionIndex}, this.value)"
+                                   placeholder="Вариант ответа ${optionIndex + 1}">
+                            <input type="number" class="weight-input" 
+                                   value="${option.weight}" min="1" max="5"
+                                   oninput="updateOptionWeight(${index}, ${optionIndex}, this.value)">
+                        </div>
+                    `;
+                });
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function addQuestion() {
+            const newQuestion = JSON.parse(JSON.stringify(newQuestionTemplate));
+            newQuestion.order_index = questions.length;
+            questions.push(newQuestion);
+            renderQuestions();
+        }
+
+        function removeQuestion(index) {
+            if (!confirm('Удалить этот вопрос?')) return;
+            questions.splice(index, 1);
+            // Обновляем порядковые номера
+            questions.forEach((q, i) => q.order_index = i);
+            renderQuestions();
+        }
+
+        function updateQuestionText(index, text) {
+            questions[index].question_text = text;
+        }
+
+        function updateOptionText(questionIndex, optionIndex, text) {
+            questions[questionIndex].options[optionIndex].text = text;
+        }
+
+        function updateOptionWeight(questionIndex, optionIndex, weight) {
+            questions[questionIndex].options[optionIndex].weight = parseFloat(weight) || 1;
+        }
+
+        function saveTest() {
+            const testData = {
+                title: document.getElementById('testTitle').value.trim(),
+                description: document.getElementById('testDescription').value.trim(),
+                instructions: document.getElementById('testInstructions').value.trim(),
+                estimated_time: parseInt(document.getElementById('testTime').value) || 15,
+                questions: questions
+            };
+
+            // Валидация
+            if (!testData.title) {
+                alert('Введите название теста');
+                return;
+            }
+
+            if (questions.length === 0) {
+                alert('Добавьте хотя бы один вопрос');
+                return;
+            }
+
+            // Проверяем, что все вопросы заполнены
+            for (let i = 0; i < questions.length; i++) {
+                const question = questions[i];
+                if (!question.question_text.trim()) {
+                    alert(`Заполните текст вопроса ${i + 1}`);
+                    return;
+                }
+                
+                for (let j = 0; j < question.options.length; j++) {
+                    if (!question.options[j].text.trim()) {
+                        alert(`Заполните вариант ответа ${j + 1} в вопросе ${i + 1}`);
+                        return;
+                    }
+                }
+            }
+
+            const url = testId ? `/api/admin/tests/${testId}` : '/api/admin/tests';
+            const method = testId ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify(testData)
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Ошибка сохранения теста');
+                return response.json();
+            })
+            .then(data => {
+                alert(testId ? 'Тест обновлен!' : 'Тест создан!');
+                window.location.href = '/admin';
+            })
+            .catch(error => {
+                console.error('Error saving test:', error);
+                alert('Ошибка сохранения теста: ' + error.message);
+            });
+        }
+
+        function cancelEdit() {
+            if (confirm('Отменить изменения?')) {
+                window.location.href = '/admin';
+            }
+        }
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', function() {
+            // Проверяем авторизацию
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+            if (!token || user.role !== 'admin') {
+                alert('Доступ запрещен');
+                window.location.href = '/login';
+                return;
+            }
+
+            loadTestData();
+        });
+    </script>
+</body>
+</html>

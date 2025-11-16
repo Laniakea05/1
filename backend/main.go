@@ -70,11 +70,22 @@ func main() {
 		admin.Use(middleware.AuthRequired())
 		admin.Use(middleware.AdminRequired())
 		{
+			// Статистика
+			admin.GET("/stats", handlers.GetAdminStats)
+			
+			// Пользователи
 			admin.GET("/users", handlers.GetAllUsers)
+			admin.POST("/users/:id/block", handlers.BlockUser)
+			
+			// Тесты
 			admin.GET("/tests", handlers.GetAllTests)
+			admin.GET("/tests/:id/edit", handlers.GetTestForEdit)
 			admin.POST("/tests", handlers.CreateTest)
 			admin.PUT("/tests/:id", handlers.UpdateTest)
 			admin.DELETE("/tests/:id", handlers.DeleteTest)
+			
+			// Результаты
+			admin.GET("/results", handlers.GetAllResults)
 		}
 
 		// Health check
@@ -97,8 +108,9 @@ func main() {
 	router.GET("/dashboard", handlers.DashboardPage)
 	router.GET("/tests", handlers.TestsPage)
 	router.GET("/test/:id", handlers.TestTakingPage)
-	router.GET("/test-result", handlers.TestResultPage) // НОВЫЙ РОУТ
+	router.GET("/test-result", handlers.TestResultPage)
 	router.GET("/admin", handlers.AdminPage)
+	router.GET("/admin/test-edit", handlers.TestEditPage) // НОВЫЙ РОУТ
 
 	log.Println("🚀 Server starting on http://localhost:8080")
 	router.Run(":8080")
