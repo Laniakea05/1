@@ -26,6 +26,10 @@ func TestTakingPage(c *gin.Context) {
 	c.HTML(200, "test-taking.html", gin.H{})
 }
 
+func TestResultPage(c *gin.Context) {
+	c.HTML(200, "test-result.html", gin.H{})
+}
+
 func AdminPage(c *gin.Context) {
 	c.HTML(200, "admin.html", gin.H{})
 }

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"database/sql"
-	"log"
 	"net/http"
 	"psycho-test-system/database"
 
@@ -38,72 +37,85 @@ func GetUserProfile(c *gin.Context) {
 }
 
 func GetUserStats(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Пользователь не авторизован"})
-		return
-	}
+    userID, exists := c.Get("userID")
+    if !exists {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Пользователь не авторизован"})
+        return
+    }
 
-	log.Printf("Getting stats for user ID: %d", userID)
+    var stats struct {
+        TestsCompleted int    `json:"tests_completed"`
+        LastTestDate   string `json:"last_test_date"`
+        Recommendation string `json:"recommendation"` // Заменяем средний балл на рекомендацию
+    }
 
-	// Получаем статистику тестов пользователя
-	var stats struct {
-		TestsCompleted int     `json:"tests_completed"`
-		AverageScore   float64 `json:"average_score"`
-		LastTestDate   string  `json:"last_test_date"`
-	}
+    // Количество пройденных тестов за последний месяц
+    err := database.DB.QueryRow(`
+        SELECT COUNT(*) FROM test_results 
+        WHERE user_id = $1 AND completed_at >= NOW() - INTERVAL '30 days'
+    `, userID).Scan(&stats.TestsCompleted)
+    if err != nil {
+        stats.TestsCompleted = 0
+    }
 
-	// Количество пройденных тестов
-	err := database.DB.QueryRow(`
-		SELECT COUNT(*) FROM test_results 
-		WHERE user_id = $1
-	`, userID).Scan(&stats.TestsCompleted)
-	if err != nil {
-		log.Printf("Error getting tests count: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка получения статистики"})
-		return
-	}
+    // Дата последнего теста
+    var lastDate sql.NullString
+    err = database.DB.QueryRow(`
+        SELECT TO_CHAR(completed_at, 'DD.MM.YYYY')
+        FROM test_results 
+        WHERE user_id = $1 
+        ORDER BY completed_at DESC 
+        LIMIT 1
+    `, userID).Scan(&lastDate)
+    
+    if err != nil || !lastDate.Valid {
+        stats.LastTestDate = "-"
+    } else {
+        stats.LastTestDate = lastDate.String
+    }
 
-	log.Printf("Tests completed: %d", stats.TestsCompleted)
+    // Получаем среднюю рекомендацию за последний месяц на основе всех тестов
+    stats.Recommendation = getMonthlyRecommendation(userID.(int))
 
-	// Средний балл
-	err = database.DB.QueryRow(`
-		SELECT COALESCE(AVG(score), 0) FROM test_results 
-		WHERE user_id = $1
-	`, userID).Scan(&stats.AverageScore)
-	if err != nil {
-		log.Printf("Error getting average score: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка получения среднего балла"})
-		return
-	}
-
-	log.Printf("Average score: %.2f", stats.AverageScore)
-
-	// Дата последнего теста
-	var lastDate sql.NullString
-	err = database.DB.QueryRow(`
-		SELECT TO_CHAR(completed_at, 'DD.MM.YYYY')
-		FROM test_results 
-		WHERE user_id = $1 
-		ORDER BY completed_at DESC 
-		LIMIT 1
-	`, userID).Scan(&lastDate)
-	
-	if err != nil {
-		log.Printf("Error getting last test date: %v", err)
-		stats.LastTestDate = "-"
-	} else if lastDate.Valid {
-		stats.LastTestDate = lastDate.String
-		log.Printf("Last test date: %s", stats.LastTestDate)
-	} else {
-		stats.LastTestDate = "-"
-		log.Printf("No valid last test date found")
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"stats": stats,
-	})
+    c.JSON(http.StatusOK, gin.H{
+        "stats": stats,
+    })
 }
+
+// getMonthlyRecommendation возвращает общую рекомендацию на основе всех тестов за месяц
+func getMonthlyRecommendation(userID int) string {
+    var avgScore sql.NullFloat64
+    
+    // Получаем средний балл за все тесты за последний месяц
+    err := database.DB.QueryRow(`
+        SELECT AVG(score/max_score * 5)  -- Нормализуем к шкале 1-5
+        FROM test_results 
+        WHERE user_id = $1 AND completed_at >= NOW() - INTERVAL '30 days'
+    `, userID).Scan(&avgScore)
+
+    if err != nil || !avgScore.Valid {
+        return "Пройдите первый тест для получения рекомендаций"
+    }
+
+    // Определяем рекомендацию на основе среднего балла
+    switch {
+    case avgScore.Float64 >= 4.5:
+        return "Отличные результаты! Ваше психологическое состояние стабильно на высоком уровне."
+    
+    case avgScore.Float64 >= 3.5:
+        return "Хорошие показатели. Рекомендуется поддерживать текущие практики."
+    
+    case avgScore.Float64 >= 2.5:
+        return "Стабильное состояние. Рекомендуется внедрить практики релаксации."
+    
+    case avgScore.Float64 >= 1.5:
+        return "Требуется внимание к психологическому состоянию. Рекомендуется консультация специалиста."
+    
+    default:
+        return "Рекомендуется профессиональная консультация."
+    }
+}
+
 
 func UpdateUserProfile(c *gin.Context) {
 	userID, exists := c.Get("userID")

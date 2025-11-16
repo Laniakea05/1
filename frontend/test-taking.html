@@ -136,13 +136,6 @@
         .btn.submit:hover {
             background: #219a52;
         }
-        .timer {
-            background: #e74c3c;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 5px;
-            font-weight: bold;
-        }
     </style>
 </head>
 <body>
@@ -151,7 +144,6 @@
             <div class="nav">
                 <h1>🧪 Прохождение теста</h1>
                 <div class="nav-links">
-                    <div class="timer" id="timer">⏱️ 15:00</div>
                     <a href="/tests">← Назад к тестам</a>
                 </div>
             </div>
@@ -160,22 +152,21 @@
 
     <div class="container">
         <div class="test-header">
-            <h1 id="testTitle">Тест на стрессоустойчивость</h1>
-            <p id="testDescription">Оценка способности работать в стрессовых ситуациях</p>
+            <h1 id="testTitle">Загрузка теста...</h1>
+            <p id="testDescription"></p>
             <div class="test-meta">
-                <span>⏱️ <span id="testTime">15</span> минут</span>
-                <span>❓ <span id="totalQuestions">3</span> вопросов</span>
+                <span>❓ <span id="totalQuestions">0</span> вопросов</span>
             </div>
             <div class="progress-bar">
                 <div class="progress" id="progress" style="width: 0%"></div>
             </div>
-            <div>Вопрос <span id="currentQuestion">1</span> из <span id="totalQuestionsCount">3</span></div>
+            <div>Вопрос <span id="currentQuestion">1</span> из <span id="totalQuestionsCount">0</span></div>
         </div>
 
-        <form id="testForm">
+        <div id="testForm">
             <div class="question-card">
                 <div class="question-number">Вопрос <span id="questionNumber">1</span></div>
-                <div class="question-text" id="questionText">Как вы реагируете, когда обнаруживаете попытку взлома системы?</div>
+                <div class="question-text" id="questionText">Загрузка вопроса...</div>
                 
                 <div class="options" id="optionsContainer">
                     <!-- Опции будут добавляться динамически -->
@@ -187,68 +178,22 @@
                     <button type="button" class="btn submit" id="submitBtn" onclick="submitTest()" style="display: none;">Завершить тест</button>
                 </div>
             </div>
-        </form>
+        </div>
     </div>
 
     <script>
         let currentQuestionIndex = 0;
         let answers = {};
         let testData = {};
-        let timeLeft = 15 * 60; // 15 минут в секундах
-
-        // Данные теста (временные, потом заменим на API)
-        const testQuestions = [
-            {
-                id: 1,
-                text: "Как вы реагируете, когда обнаруживаете попытку взлома системы?",
-                options: [
-                    "Паникую и теряю контроль над ситуацией",
-                    "Спокойно анализирую ситуацию и действую по инструкции", 
-                    "Немедленно сообщаю руководству и жду указаний",
-                    "Пытаюсь скрыть инцидент и разобраться самостоятельно"
-                ]
-            },
-            {
-                id: 2, 
-                text: "При высокой рабочей нагрузке вы:",
-                options: [
-                    "Эффективно планируете задачи и распределяете время",
-                    "Работаете в состоянии стресса, что снижает эффективность",
-                    "Откладываете сложные задачи на потом",
-                    "Просите помощи у коллег или руководства"
-                ]
-            },
-            {
-                id: 3,
-                text: "Ваша реакция на критику работы:",
-                options: [
-                    "Принимаю к сведению и работаю над ошибками",
-                    "Защищаюсь и оправдываю свои действия", 
-                    "Игнорирую, считаю что критик некомпетентен",
-                    "Анализирую критику и делаю выводы для улучшения"
-                ]
-            }
-        ];
-
-        function startTimer() {
-            const timerInterval = setInterval(() => {
-                timeLeft--;
-                const minutes = Math.floor(timeLeft / 60);
-                const seconds = timeLeft % 60;
-                document.getElementById('timer').textContent = 
-                    `⏱️ ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                
-                if (timeLeft <= 0) {
-                    clearInterval(timerInterval);
-                    submitTest();
-                }
-            }, 1000);
-        }
 
         function loadQuestion(index) {
-            const question = testQuestions[index];
+            if (!testData.questions || index >= testData.questions.length) {
+                return;
+            }
+
+            const question = testData.questions[index];
             document.getElementById('questionNumber').textContent = index + 1;
-            document.getElementById('questionText').textContent = question.text;
+            document.getElementById('questionText').textContent = question.question_text;
             
             const optionsContainer = document.getElementById('optionsContainer');
             optionsContainer.innerHTML = '';
@@ -256,20 +201,20 @@
             question.options.forEach((option, optionIndex) => {
                 const optionDiv = document.createElement('div');
                 optionDiv.className = `option ${answers[question.id] === optionIndex ? 'selected' : ''}`;
-                optionDiv.textContent = option;
+                optionDiv.textContent = option.text;
                 optionDiv.onclick = () => selectOption(question.id, optionIndex);
                 optionsContainer.appendChild(optionDiv);
             });
 
             // Обновляем прогресс
-            const progress = ((index + 1) / testQuestions.length) * 100;
+            const progress = ((index + 1) / testData.questions.length) * 100;
             document.getElementById('progress').style.width = `${progress}%`;
             document.getElementById('currentQuestion').textContent = index + 1;
 
             // Управление кнопками
             document.getElementById('prevBtn').disabled = index === 0;
-            document.getElementById('nextBtn').style.display = index === testQuestions.length - 1 ? 'none' : 'block';
-            document.getElementById('submitBtn').style.display = index === testQuestions.length - 1 ? 'block' : 'none';
+            document.getElementById('nextBtn').style.display = index === testData.questions.length - 1 ? 'none' : 'block';
+            document.getElementById('submitBtn').style.display = index === testData.questions.length - 1 ? 'block' : 'none';
         }
 
         function selectOption(questionId, optionIndex) {
@@ -278,7 +223,7 @@
         }
 
         function nextQuestion() {
-            if (currentQuestionIndex < testQuestions.length - 1) {
+            if (currentQuestionIndex < testData.questions.length - 1) {
                 currentQuestionIndex++;
                 loadQuestion(currentQuestionIndex);
             }
@@ -292,41 +237,121 @@
         }
 
         function submitTest() {
-            if (Object.keys(answers).length !== testQuestions.length) {
+            // Блокируем кнопку отправки
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Отправка...';
+
+            if (Object.keys(answers).length !== testData.questions.length) {
                 if (!confirm('Вы ответили не на все вопросы. Завершить тест?')) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Завершить тест';
                     return;
                 }
             }
 
             const submission = {
-                test_id: 1,
                 answers: answers
             };
 
-            fetch('/api/tests/1/submit', {
+            // Создаем AbortController для таймаута
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+            fetch(`/api/tests/${testData.id}/submit`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 },
-                body: JSON.stringify(submission)
+                body: JSON.stringify(submission),
+                signal: controller.signal
             })
-            .then(response => response.json())
+            .then(response => {
+                clearTimeout(timeoutId);
+                if (!response.ok) {
+                    throw new Error(`Ошибка сервера: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
-                alert(`Тест завершен! Ваш результат: ${data.result.score}%`);
-                window.location.href = '/dashboard';
+                if (data.result && data.result.interpretation) {
+                    // Перенаправляем на страницу результатов с параметрами
+                    const interpretation = encodeURIComponent(data.result.interpretation);
+                    const recommendation = encodeURIComponent(data.result.recommendation);
+                    window.location.href = `/test-result?interpretation=${interpretation}&recommendation=${recommendation}`;
+                } else {
+                    throw new Error('Неверный формат ответа от сервера');
+                }
             })
             .catch(error => {
-                alert('Ошибка при отправке теста: ' + error.message);
+                clearTimeout(timeoutId);
+                console.error('Error submitting test:', error);
+                
+                let errorMessage = 'Ошибка при отправке теста: ';
+                if (error.name === 'AbortError') {
+                    errorMessage += 'Превышено время ожидания';
+                } else {
+                    errorMessage += error.message;
+                }
+
+                alert(errorMessage);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Завершить тест';
+            });
+        }
+
+        function loadTestData(testId) {
+            fetch(`/api/tests/${testId}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Тест не найден');
+                }
+                return response.json();
+            })
+            .then(data => {
+                testData = data.test;
+                
+                // Обновляем информацию о тесте
+                document.getElementById('testTitle').textContent = testData.title;
+                document.getElementById('testDescription').textContent = testData.description;
+                document.getElementById('totalQuestions').textContent = testData.questions.length;
+                document.getElementById('totalQuestionsCount').textContent = testData.questions.length;
+                
+                // Загружаем первый вопрос
+                loadQuestion(0);
+            })
+            .catch(error => {
+                alert('Ошибка загрузки теста: ' + error.message);
+                window.location.href = '/tests';
             });
         }
 
         // Инициализация
         document.addEventListener('DOMContentLoaded', function() {
-            startTimer();
-            loadQuestion(0);
-            document.getElementById('totalQuestions').textContent = testQuestions.length;
-            document.getElementById('totalQuestionsCount').textContent = testQuestions.length;
+            // Проверяем авторизацию
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Для прохождения теста необходимо авторизоваться');
+                window.location.href = '/login';
+                return;
+            }
+
+            // Получаем ID теста из URL
+            const pathParts = window.location.pathname.split('/');
+            const testId = pathParts[pathParts.length - 1];
+            
+            if (!testId || isNaN(testId)) {
+                alert('Неверный идентификатор теста');
+                window.location.href = '/tests';
+                return;
+            }
+
+            loadTestData(testId);
         });
     </script>
 </body>

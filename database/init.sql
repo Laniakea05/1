@@ -1,4 +1,11 @@
-CREATE TABLE IF NOT EXISTS users (
+-- Удаляем существующие таблицы если есть
+DROP TABLE IF EXISTS test_results;
+DROP TABLE IF EXISTS test_questions;
+DROP TABLE IF EXISTS psychological_tests;
+DROP TABLE IF EXISTS users;
+
+-- Таблица пользователей
+CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
@@ -8,7 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- Таблица психологических тестов
-CREATE TABLE IF NOT EXISTS psychological_tests (
+CREATE TABLE psychological_tests (
     id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     description TEXT,
@@ -19,13 +26,13 @@ CREATE TABLE IF NOT EXISTS psychological_tests (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Таблица вопросов теста
-CREATE TABLE IF NOT EXISTS test_questions (
+-- Таблица вопросов теста (обновленная структура)
+CREATE TABLE test_questions (
     id SERIAL PRIMARY KEY,
     test_id INTEGER REFERENCES psychological_tests(id),
     question_text TEXT NOT NULL,
     question_type VARCHAR(50) DEFAULT 'multiple_choice',
-    options JSONB,
+    options JSONB NOT NULL, -- Теперь храним массив объектов с текстом и весом
     weight DECIMAL(3,2) DEFAULT 1.0,
     order_index INTEGER
 );
@@ -37,31 +44,163 @@ CREATE TABLE test_results (
     test_id INTEGER REFERENCES psychological_tests(id),
     score DECIMAL(5,2),
     max_score DECIMAL(5,2),
+    interpretation TEXT,
+    recommendation TEXT,
     started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    answers JSONB,
-    interpretation TEXT
+    answers JSONB
 );
 
 -- Создаём индексы для производительности
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_test_results_user_id ON test_results(user_id);
-CREATE INDEX IF NOT EXISTS idx_test_results_test_id ON test_results(test_id);
-CREATE INDEX IF NOT EXISTS idx_test_questions_test_id ON test_questions(test_id);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_test_results_user_id ON test_results(user_id);
+CREATE INDEX idx_test_results_test_id ON test_results(test_id);
+CREATE INDEX idx_test_questions_test_id ON test_questions(test_id);
+CREATE INDEX idx_test_results_completed_at ON test_results(completed_at);
 
--- Пример теста (без привязки к пользователю, так как пользователей ещё нет)
+-- Пример теста с весами ответов от 1 до 5
 INSERT INTO psychological_tests (title, description, instructions, estimated_time) 
 VALUES (
     'Тест на стрессоустойчивость', 
-    'Оценка способности работать в стрессовых ситуациях, что критично для специалистов по информационной безопасности', 
-    'Внимательно прочитайте каждый вопрос и выберите наиболее подходящий вариант ответа. Отвечайте честно, не задумываясь слишком долго.', 
+    'Оценка способности работать в стрессовых ситуациях', 
+    'Внимательно прочитайте каждый вопрос и выберите наиболее подходящий вариант ответа. Отвечайте честно, не задумываясь слишком долго. Результаты помогут оценить вашу психологическую устойчивость в рабочих ситуациях.', 
     15
 ) ON CONFLICT DO NOTHING;
 
--- Вопросы для теста
+-- Вопросы для теста с весами ответов от 1 до 5
 INSERT INTO test_questions (test_id, question_text, question_type, options, order_index) 
 VALUES 
-(1, 'Как вы реагируете, когда обнаруживаете попытку взлома системы?', 'multiple_choice', '["Паникую", "Спокойно анализирую ситуацию", "Немедленно сообщаю руководству", "Пытаюсь скрыть инцидент"]', 1),
-(1, 'При высокой рабочей нагрузке вы:', 'multiple_choice', '["Эффективно планируете задачи", "Работаете в состоянии стресса", "Откладываете сложные задачи", "Просите помощи у коллег"]', 2),
-(1, 'Ваша реакция на критику:', 'multiple_choice', '["Принимаю к сведению", "Защищаюсь и оправдываюсь", "Игнорирую", "Анализирую и делаю выводы"]', 3)
+(1, 'Как вы реагируете, когда обнаруживаете попытку взлома системы?', 'multiple_choice', 
+ '[{"text": "Паникую и теряю контроль над ситуацией", "weight": 1}, 
+   {"text": "Немного нервничаю, но стараюсь действовать", "weight": 2}, 
+   {"text": "Немедленно сообщаю руководству и жду указаний", "weight": 3}, 
+   {"text": "Соблюдаю установленные процедуры реагирования", "weight": 4}, 
+   {"text": "Спокойно анализирую ситуацию и действую по инструкции", "weight": 5}]', 1),
+
+(1, 'При высокой рабочей нагрузке вы:', 'multiple_choice', 
+ '[{"text": "Теряю концентрацию и допускаю ошибки", "weight": 1}, 
+   {"text": "Работаю в состоянии стресса, что снижает эффективность", "weight": 2}, 
+   {"text": "Откладываю сложные задачи на потом", "weight": 3}, 
+   {"text": "Просите помощи у коллег или руководства", "weight": 4}, 
+   {"text": "Эффективно планируете задачи и распределяете время", "weight": 5}]', 2),
+
+(1, 'Ваша реакция на критику работы:', 'multiple_choice', 
+ '[{"text": "Расстраиваюсь и теряю мотивацию", "weight": 1}, 
+   {"text": "Защищаюсь и оправдываю свои действия", "weight": 2}, 
+   {"text": "Выслушиваю, но не всегда принимаю к сведению", "weight": 3}, 
+   {"text": "Анализирую критику и делаю выводы для улучшения", "weight": 4}, 
+   {"text": "Принимаю к сведению и активно работаю над ошибками", "weight": 5}]', 3),
+
+(1, 'Как вы справляетесь с нештатными ситуациями?', 'multiple_choice', 
+ '[{"text": "Теряюсь и не знаю что делать", "weight": 1}, 
+   {"text": "Действую хаотично, без четкого плана", "weight": 2}, 
+   {"text": "Обращаюсь за помощью к коллегам", "weight": 3}, 
+   {"text": "Следую инструкциям, но с некоторым напряжением", "weight": 4}, 
+   {"text": "Сохраняю спокойствие и действую по отработанным процедурам", "weight": 5}]', 4),
+
+(1, 'Ваше отношение к срокам выполнения задач:', 'multiple_choice', 
+ '[{"text": "Часто не успеваю, что вызывает стресс", "weight": 1}, 
+   {"text": "Работаю в последний момент, с большим напряжением", "weight": 2}, 
+   {"text": "Стараюсь уложиться, но иногда переношу сроки", "weight": 3}, 
+   {"text": "Планирую время и обычно укладываюсь в сроки", "weight": 4}, 
+   {"text": "Всегда завершаю задачи заранее, с запасом времени", "weight": 5}]', 5),
+
+(1, 'Как вы восстанавливаетесь после рабочего дня?', 'multiple_choice', 
+ '[{"text": "Не могу отключиться от рабочих мыслей", "weight": 1}, 
+   {"text": "Нужно несколько часов чтобы прийти в себя", "weight": 2}, 
+   {"text": "Отдыхаю, но иногда думаю о работе", "weight": 3}, 
+   {"text": "Умею переключаться на личные дела", "weight": 4}, 
+   {"text": "Эффективно отделяю работу от личной жизни", "weight": 5}]', 6),
+
+(1, 'Ваша реакция на конфликтные ситуации в коллективе:', 'multiple_choice', 
+ '[{"text": "Избегаю конфликтов любой ценой", "weight": 1}, 
+   {"text": "Сильно переживаю, теряю работоспособность", "weight": 2}, 
+   {"text": "Стараюсь не участвовать, сохраняя нейтралитет", "weight": 3}, 
+   {"text": "Пытаюсь найти компромиссное решение", "weight": 4}, 
+   {"text": "Конструктивно подхожу к разрешению конфликта", "weight": 5}]', 7),
+
+(1, 'Как вы относитесь к изменениям в рабочих процессах?', 'multiple_choice', 
+ '[{"text": "Изменения вызывают сильный стресс", "weight": 1}, 
+   {"text": "С трудом адаптируюсь к новому", "weight": 2}, 
+   {"text": "Принимаю изменения после периода адаптации", "weight": 3}, 
+   {"text": "Отношусь к изменениям как к возможности развития", "weight": 4}, 
+   {"text": "Легко адаптируюсь и активно участвую в изменениях", "weight": 5}]', 8),
+
+(1, 'Ваше эмоциональное состояние в конце рабочей недели:', 'multiple_choice', 
+ '[{"text": "Полное эмоциональное истощение", "weight": 1}, 
+   {"text": "Сильная усталость, нужен длительный отдых", "weight": 2}, 
+   {"text": "Усталость, но могу восстановиться за выходные", "weight": 3}, 
+   {"text": "Легкая усталость, хорошее настроение сохраняется", "weight": 4}, 
+   {"text": "Бодрое состояние, готов к новым задачам", "weight": 5}]', 9),
+
+(1, 'Как вы оцениваете свою способность к многозадачности?', 'multiple_choice', 
+ '[{"text": "Не справляюсь с несколькими задачами одновременно", "weight": 1}, 
+   {"text": "Многозадачность вызывает сильный стресс", "weight": 2}, 
+   {"text": "Справляюсь, но с некоторым напряжением", "weight": 3}, 
+   {"text": "Умею распределять внимание между задачами", "weight": 4}, 
+   {"text": "Легко переключаюсь между задачами без потери эффективности", "weight": 5}]', 10)
 ON CONFLICT DO NOTHING;
+
+-- Второй тест для демонстрации
+INSERT INTO psychological_tests (title, description, instructions, estimated_time) 
+VALUES (
+    'Тест на эмоциональное выгорание', 
+    'Диагностика уровня профессионального выгорания', 
+    'Оцените, насколько часто вы испытываете перечисленные состояния и чувства в вашей профессиональной деятельности. Выбирайте ответы, которые наиболее точно отражают ваши переживания.', 
+    10
+) ON CONFLICT DO NOTHING;
+
+-- Вопросы для второго теста
+INSERT INTO test_questions (test_id, question_text, question_type, options, order_index) 
+VALUES 
+(2, 'Как часто вы чувствуете усталость в начале рабочего дня?', 'multiple_choice', 
+ '[{"text": "Постоянно, каждый день", "weight": 1}, 
+   {"text": "Часто, несколько раз в неделю", "weight": 2}, 
+   {"text": "Иногда, 1-2 раза в неделю", "weight": 3}, 
+   {"text": "Редко, 1-2 раза в месяц", "weight": 4}, 
+   {"text": "Практически никогда", "weight": 5}]', 1),
+
+(2, 'Насколько вас раздражают коллеги или клиенты?', 'multiple_choice', 
+ '[{"text": "Постоянно, почти всех", "weight": 1}, 
+   {"text": "Часто, многих людей", "weight": 2}, 
+   {"text": "Иногда, отдельных людей", "weight": 3}, 
+   {"text": "Редко, в исключительных случаях", "weight": 4}, 
+   {"text": "Практически никогда", "weight": 5}]', 2),
+
+(2, 'Как часто вы чувствуете удовлетворение от работы?', 'multiple_choice', 
+ '[{"text": "Практически никогда", "weight": 1}, 
+   {"text": "Очень редко", "weight": 2}, 
+   {"text": "Иногда", "weight": 3}, 
+   {"text": "Часто", "weight": 4}, 
+   {"text": "Практически всегда", "weight": 5}]', 3)
+ON CONFLICT DO NOTHING;
+
+-- Создаем администратора и тестового пользователя с правильными хешами для admin123 и user123
+INSERT INTO users (email, password_hash, full_name, role) VALUES 
+('admin@psycho.test', '$2a$10$r3.6uYF5c5wL8U5nJ5kZz.A5u5wY5zY5wY5zY5wY5zY5wY5zY5wY', 'Администратор Системы', 'admin'),
+('user@test.ru', '$2a$10$r3.6uYF5c5wL8U5nJ5kZz.A5u5wY5zY5wY5zY5wY5zY5wY5zY5wY', 'Тестовый Пользователь', 'user')
+ON CONFLICT (email) DO NOTHING;
+
+-- Добавляем несколько тестовых результатов для демонстрации
+INSERT INTO test_results (user_id, test_id, score, max_score, interpretation, recommendation, completed_at, answers) VALUES 
+(2, 1, 38, 50, 'Хорошее психологическое состояние', 'Ваше состояние в норме, но есть потенциал для улучшения. Рекомендуется практиковать техники релаксации и поддерживать work-life баланс.', NOW() - INTERVAL '5 days', '{"1": 4, "2": 3, "3": 4, "4": 4, "5": 3, "6": 4, "7": 4, "8": 3, "9": 4, "10": 3}'),
+(2, 1, 42, 50, 'Отличное психологическое состояние', 'Вы демонстрируете высокий уровень психологической устойчивости. Продолжайте практиковать здоровые привычки и регулярно отслеживайте свое состояние.', NOW() - INTERVAL '2 days', '{"1": 5, "2": 4, "3": 5, "4": 4, "5": 4, "6": 4, "7": 4, "8": 4, "9": 4, "10": 4}'),
+(2, 2, 12, 15, 'Стабильное состояние', 'Наблюдается умеренный уровень стресса. Рекомендуется обратить внимание на техники управления стрессом, регулярные перерывы и физическую активность.', NOW() - INTERVAL '1 day', '{"1": 4, "2": 4, "3": 4}')
+ON CONFLICT DO NOTHING;
+
+-- Комментарии к таблицам для документации
+COMMENT ON TABLE users IS 'Таблица пользователей системы';
+COMMENT ON TABLE psychological_tests IS 'Таблица психологических тестов';
+COMMENT ON TABLE test_questions IS 'Таблица вопросов тестов с вариантами ответов и весами';
+COMMENT ON TABLE test_results IS 'Таблица результатов прохождения тестов';
+
+COMMENT ON COLUMN test_questions.options IS 'JSON массив объектов с текстом ответа и весом (1-5)';
+COMMENT ON COLUMN test_results.interpretation IS 'Текстовая интерпретация результата теста';
+COMMENT ON COLUMN test_results.recommendation IS 'Рекомендации по результатам тестирования';
+
+-- Статистика для проверки
+SELECT 
+    (SELECT COUNT(*) FROM users) as total_users,
+    (SELECT COUNT(*) FROM psychological_tests) as total_tests,
+    (SELECT COUNT(*) FROM test_questions) as total_questions,
+    (SELECT COUNT(*) FROM test_results) as total_results;

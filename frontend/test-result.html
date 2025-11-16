@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Результат теста</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #f8f9fa;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .result-container {
+            background: white;
+            padding: 50px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+        }
+        .result-icon {
+            font-size: 5em;
+            margin-bottom: 30px;
+        }
+        .result-title {
+            color: #2c3e50;
+            font-size: 2em;
+            margin-bottom: 40px;
+            font-weight: bold;
+        }
+        .result-section {
+            margin-bottom: 35px;
+            text-align: left;
+        }
+        .section-title {
+            color: #3498db;
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        .interpretation {
+            color: #2c3e50;
+            font-size: 1.4em;
+            line-height: 1.5;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        .recommendation {
+            color: #3498db; /* Синий цвет вместо зеленого */
+            font-size: 1.1em;
+            line-height: 1.6;
+            background: #f0f8ff;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        .actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 40px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 14px 25px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            display: inline-block;
+            transition: background 0.3s ease;
+            font-size: 1em;
+        }
+        .btn:hover {
+            background: #2980b9;
+        }
+        .btn.secondary {
+            background: #95a5a6;
+        }
+        .btn.secondary:hover {
+            background: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="result-container">
+        <div class="result-icon">🏁</div> <!-- Символ финиша вместо хлопушки -->
+        <h1 class="result-title">Тест завершен!</h1>
+        
+        <div class="result-section">
+            <h2 class="section-title">Ваше состояние:</h2>
+            <div class="interpretation" id="interpretationText">
+                Загрузка...
+            </div>
+        </div>
+        
+        <div class="result-section">
+            <h2 class="section-title">Рекомендация:</h2>
+            <div class="recommendation" id="recommendationText">
+                Загрузка...
+            </div>
+        </div>
+        
+        <div class="actions">
+            <a href="/dashboard" class="btn">
+                📊 Личный кабинет
+            </a>
+            <a href="/tests" class="btn secondary">
+                🧪 Новый тест
+            </a>
+            <a href="/" class="btn secondary">
+                🏠 На главную
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Получаем параметры из URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const interpretation = urlParams.get('interpretation');
+        const recommendation = urlParams.get('recommendation');
+
+        // Заполняем данные на странице
+        document.getElementById('interpretationText').textContent = 
+            interpretation || 'Информация не найдена';
+        document.getElementById('recommendationText').textContent = 
+            recommendation || 'Информация не найдена';
+
+        // Если данных нет, показываем ошибку
+        if (!interpretation || !recommendation) {
+            document.getElementById('interpretationText').textContent = 
+                'Не удалось загрузить результаты теста';
+            document.getElementById('recommendationText').textContent = 
+                'Пожалуйста, вернитесь к тестам и попробуйте снова';
+        }
+    </script>
+</body>
+</html>

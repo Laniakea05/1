@@ -1,10 +1,9 @@
 package handlers
 
 import (
-	"bytes"
 	"database/sql"
 	"encoding/json"
-	"io"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -89,57 +88,92 @@ func GetTest(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"test": test})
 }
 
-// calculateTestScore вычисляет результат теста на основе ответов
-func calculateTestScore(answers map[string]interface{}) (float64, float64, string) {
-	// Правильные ответы для теста на стрессоустойчивость
-	// question_id -> index_of_correct_answer
-	correctAnswers := map[string]int{
-		"1": 1, // "Спокойно анализирую ситуацию и действую по инструкции"
-		"2": 0, // "Эффективно планируете задачи и распределяете время"
-		"3": 0, // "Принимаю к сведению и работаю над ошибками"
-	}
-	
-	totalScore := 0.0
-	maxPossibleScore := float64(len(correctAnswers))
-	
-	// Считаем правильные ответы
-	for qID, userAnswer := range answers {
-		if correctIndex, exists := correctAnswers[qID]; exists {
-			// Приводим userAnswer к int (JSON числа приходят как float64)
-			var userAns int
-			switch v := userAnswer.(type) {
-			case float64:
-				userAns = int(v)
-			case int:
-				userAns = v
-			default:
-				userAns = -1 // невалидный ответ
-			}
-			
-			if userAns == correctIndex {
-				totalScore += 1.0
-			}
-		}
-	}
-	
-	// Вычисляем процент
-	percentage := (totalScore / maxPossibleScore) * 100
-	
-	// Интерпретация результатов
-	var interpretation string
-	switch {
-	case percentage >= 90:
-		interpretation = "🎉 Отличный результат! Вы обладаете высоким уровнем стрессоустойчивости, что критически важно для работы в информационной безопасности."
-	case percentage >= 70:
-		interpretation = "✅ Хороший уровень стрессоустойчивости. Вы умеете сохранять спокойствие в сложных ситуациях."
-	case percentage >= 50:
-		interpretation = "⚠️ Средний уровень. В стрессовых ситуациях можете терять эффективность. Рекомендуется развивать навыки управления стрессом."
-	default:
-		interpretation = "🔴 Требуется развитие стрессоустойчивости. Рекомендуется пройти тренинг по управлению стрессом и развивать навыки работы в нештатных ситуациях."
-	}
-	
-	return percentage, 100.0, interpretation
+// calculateTestScoreWithWeights вычисляет результат теста с учетом весов ответов (1-5)
+func calculateTestScoreWithWeights(answers map[string]interface{}, testID int) (float64, float64, string, string) {
+    rows, err := database.DB.Query(`
+        SELECT tq.id, tq.question_text, tq.options
+        FROM test_questions tq
+        WHERE tq.test_id = $1
+        ORDER BY tq.order_index
+    `, testID)
+    
+    if err != nil {
+        log.Printf("Error getting test questions: %v", err)
+        return 0, 0, "Ошибка загрузки теста", ""
+    }
+    defer rows.Close()
+
+    totalScore := 0.0
+    maxPossibleScore := 0.0
+    questionsCount := 0
+
+    for rows.Next() {
+        var questionID int
+        var questionText string
+        var optionsJSON string
+        
+        err := rows.Scan(&questionID, &questionText, &optionsJSON)
+        if err != nil {
+            continue
+        }
+
+        var options []models.QuestionOption
+        json.Unmarshal([]byte(optionsJSON), &options)
+
+        // Считаем максимальный возможный балл для вопроса (максимальный вес 5)
+        questionMaxScore := 5.0 // Максимальный вес теперь 5
+        maxPossibleScore += questionMaxScore
+
+        // Получаем выбранный ответ пользователя
+        if userAnswer, exists := answers[strconv.Itoa(questionID)]; exists {
+            if answerIndex, ok := userAnswer.(float64); ok {
+                idx := int(answerIndex)
+                if idx >= 0 && idx < len(options) {
+                    totalScore += options[idx].Weight
+                }
+            }
+        }
+        questionsCount++
+    }
+
+    // Если нет вопросов, возвращаем ошибку
+    if questionsCount == 0 {
+        return 0, 0, "Тест не содержит вопросов", "Обратитесь к администратору"
+    }
+
+    // Определяем интерпретацию и рекомендацию на основе общего балла
+    averageScore := totalScore / float64(questionsCount) // Средний балл за вопрос
+    interpretation, recommendation := getInterpretationAndRecommendation(averageScore)
+
+    return totalScore, maxPossibleScore, interpretation, recommendation
 }
+
+// getInterpretationAndRecommendation возвращает интерпретацию и рекомендацию по среднему баллу (1-5)
+func getInterpretationAndRecommendation(averageScore float64) (string, string) {
+    switch {
+    case averageScore >= 4.5:
+        return "Отличное психологическое состояние", 
+               "Вы демонстрируете высокий уровень психологической устойчивости. Продолжайте практиковать здоровые привычки и регулярно отслеживайте свое состояние."
+    
+    case averageScore >= 3.5:
+        return "Хорошее психологическое состояние", 
+               "Ваше состояние в норме, но есть потенциал для улучшения. Рекомендуется практиковать техники релаксации и поддерживать work-life баланс."
+    
+    case averageScore >= 2.5:
+        return "Удовлетворительное состояние", 
+               "Наблюдается умеренный уровень стресса. Рекомендуется обратить внимание на техники управления стрессом, регулярные перерывы и физическую активность."
+    
+    case averageScore >= 1.5:
+        return "Состояние требует внимания", 
+               "Вы испытываете значительный стресс. Рекомендуется консультация психолога, регулярная практика медитации и пересмотр рабочих нагрузок."
+    
+    default:
+        return "Критическое состояние", 
+               "Рекомендуется немедленно обратиться к специалисту. Ваше психологическое здоровье требует профессиональной помощи и поддержки."
+    }
+}
+
+
 
 func SubmitTest(c *gin.Context) {
     testID, err := strconv.Atoi(c.Param("id"))
@@ -148,33 +182,14 @@ func SubmitTest(c *gin.Context) {
         return
     }
 
-    // ДЛЯ ДЕБАГА: логируем сырые данные
-    bodyBytes, err := io.ReadAll(c.Request.Body)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Ошибка чтения тела запроса"})
-        return
-    }
-    
-    log.Printf("Raw JSON received for test %d: %s", testID, string(bodyBytes))
-    
-    // Восстанавливаем тело запроса для парсинга
-    c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-
     var submission struct {
         Answers map[string]interface{} `json:"answers"`
     }
 
-    // Используем BindJSON для лучшего контроля ошибок
     if err := c.BindJSON(&submission); err != nil {
-        log.Printf("JSON parsing error for test %d: %v", testID, err)
-        c.JSON(http.StatusBadRequest, gin.H{
-            "error": "Неверный формат JSON данных",
-            "details": err.Error(),
-        })
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат данных"})
         return
     }
-
-    log.Printf("Parsed answers for test %d: %+v", testID, submission.Answers)
 
     userID, exists := c.Get("userID")
     if !exists {
@@ -182,35 +197,38 @@ func SubmitTest(c *gin.Context) {
         return
     }
 
+    // Логируем для отладки
+    fmt.Printf("Processing test submission: user=%d, test=%d, answers=%d\n", 
+        userID, testID, len(submission.Answers))
+
+    // Новая логика оценки теста с весами
+    score, maxScore, interpretation, recommendation := calculateTestScoreWithWeights(submission.Answers, testID)
+
     answersJSON, err := json.Marshal(submission.Answers)
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка обработки ответов"})
         return
     }
 
-    // РЕАЛЬНАЯ логика оценки теста
-    score, maxScore, interpretation := calculateTestScore(submission.Answers)
-
-    // Сохраняем результаты в базу данных с временем завершения
+    // Сохраняем результаты в базу данных
     _, err = database.DB.Exec(`
-        INSERT INTO test_results (user_id, test_id, score, max_score, answers, interpretation, completed_at)
-        VALUES ($1, $2, $3, $4, $5, $6, NOW())
-    `, userID, testID, score, maxScore, string(answersJSON), interpretation)
+        INSERT INTO test_results (user_id, test_id, score, max_score, answers, interpretation, recommendation, completed_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+    `, userID, testID, score, maxScore, string(answersJSON), interpretation, recommendation)
 
     if err != nil {
-        log.Printf("Database error for test %d: %v", testID, err)
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка сохранения результатов: " + err.Error()})
+        fmt.Printf("Database error: %v\n", err)
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка сохранения результатов"})
         return
     }
 
-    log.Printf("Test result saved successfully: user=%d, test=%d, score=%.1f%%", userID, testID, score)
+    fmt.Printf("Test result saved successfully: user=%d, test=%d\n", userID, testID)
 
     c.JSON(http.StatusOK, gin.H{
         "message": "Тест завершен",
         "result": gin.H{
-            "score":          score,
-            "max_score":      maxScore,
             "interpretation": interpretation,
+            "recommendation": recommendation,
         },
     })
 }

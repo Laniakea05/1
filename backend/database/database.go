@@ -16,7 +16,7 @@ func getDBConfig() (host string, port string, user string, password string, dbna
 	host = getEnv("DB_HOST", "postgres")
 	port = getEnv("DB_PORT", "5432")
 	user = getEnv("DB_USER", "postgres")
-	password = getEnv("DB_PASSWORD", "postgres")
+	password = getEnv("DB_PASSWORD", "postgres")  // Должно быть "postgres"
 	dbname = getEnv("DB_NAME", "psycho_test_system")
 	return
 }

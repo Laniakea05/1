@@ -51,7 +51,7 @@ func main() {
 		}
 
 		tests := api.Group("/tests")
-		tests.Use(middleware.AuthRequired()) // Добавляем аутентификацию для тестов
+		tests.Use(middleware.AuthRequired())
 		{
 			tests.GET("", handlers.GetTests)
 			tests.GET("/:id", handlers.GetTest)
@@ -70,6 +70,8 @@ func main() {
 		admin.Use(middleware.AuthRequired())
 		admin.Use(middleware.AdminRequired())
 		{
+			admin.GET("/users", handlers.GetAllUsers)
+			admin.GET("/tests", handlers.GetAllTests)
 			admin.POST("/tests", handlers.CreateTest)
 			admin.PUT("/tests/:id", handlers.UpdateTest)
 			admin.DELETE("/tests/:id", handlers.DeleteTest)
@@ -83,6 +85,9 @@ func main() {
 				"database": "connected",
 			})
 		})
+
+		// Debug routes
+		api.GET("/debug/db-structure", handlers.CheckDBStructure)
 	}
 
 	// Frontend routes
@@ -92,6 +97,7 @@ func main() {
 	router.GET("/dashboard", handlers.DashboardPage)
 	router.GET("/tests", handlers.TestsPage)
 	router.GET("/test/:id", handlers.TestTakingPage)
+	router.GET("/test-result", handlers.TestResultPage) // НОВЫЙ РОУТ
 	router.GET("/admin", handlers.AdminPage)
 
 	log.Println("🚀 Server starting on http://localhost:8080")
