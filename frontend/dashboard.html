@@ -52,6 +52,14 @@
             margin-bottom: 30px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
+        .user-info h2 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .user-info p {
+            color: #7f8c8d;
+            line-height: 1.6;
+        }
         .stats {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -73,6 +81,29 @@
             font-size: 2em;
             font-weight: bold;
             color: #3498db;
+        }
+        .recommendation-card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .recommendation-card h3 {
+            color: #3498db;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .recommendation-text {
+            color: #7f8c8d;
+            line-height: 1.6;
+            font-size: 1.1em;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
         }
         .recent-tests {
             background: white;
@@ -145,14 +176,16 @@
                 <div class="loading" id="testsLoading">Загрузка...</div>
             </div>
             <div class="stat-card">
-                <h3>Средний балл</h3>
-                <div class="stat-number" id="averageScore">0%</div>
-                <div class="loading" id="scoreLoading">Загрузка...</div>
-            </div>
-            <div class="stat-card">
                 <h3>Последний тест</h3>
                 <div id="lastTestDate">-</div>
                 <div class="loading" id="dateLoading">Загрузка...</div>
+            </div>
+        </div>
+
+        <div class="recommendation-card">
+            <h3>💡 Рекомендация на основе ваших результатов</h3>
+            <div class="recommendation-text" id="recommendationText">
+                <div class="loading">Загрузка рекомендации...</div>
             </div>
         </div>
 
@@ -203,8 +236,8 @@
                 
                 // Обновляем статистику
                 document.getElementById('testsCompleted').textContent = stats.tests_completed;
-                document.getElementById('averageScore').textContent = Math.round(stats.average_score) + '%';
                 document.getElementById('lastTestDate').textContent = stats.last_test_date || '-';
+                document.getElementById('recommendationText').textContent = stats.recommendation;
                 
                 // Обновляем список тестов
                 updateRecentTests(stats.tests_completed);
@@ -232,11 +265,11 @@
             } else {
                 recentTestsContainer.innerHTML = `
                     <div class="test-item">
-                        <span>✅ Вы прошли ${testsCount} тест(ов)</span>
+                        <span>✅ Вы прошли ${testsCount} тест(ов) за последний месяц</span>
                         <a href="/tests" class="btn">Пройти еще тест</a>
                     </div>
                     <div class="test-item">
-                        <span>📊 Результаты сохраняются автоматически</span>
+                        <span>📊 Рекомендация обновляется автоматически</span>
                         <span>Обновите страницу для актуальных данных</span>
                     </div>
                 `;

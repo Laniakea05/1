@@ -45,6 +45,20 @@
         .nav-links a:hover {
             background: #ecf0f1;
         }
+        .page-header {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .page-header h2 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .page-header p {
+            color: #7f8c8d;
+            line-height: 1.6;
+        }
         .tests-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -98,6 +112,22 @@
         .btn.secondary:hover {
             background: #2980b9;
         }
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+        .no-tests {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+            background: white;
+            border-radius: 10px;
+        }
     </style>
 </head>
 <body>
@@ -114,44 +144,13 @@
     </div>
 
     <div class="container">
-        <div style="background: white; padding: 25px; border-radius: 10px; margin-bottom: 30px;">
+        <div class="page-header">
             <h2>Доступные тесты</h2>
             <p>Выберите тест для прохождения. Каждый тест поможет оценить важные психологические качества для работы в сфере информационной безопасности.</p>
         </div>
 
-        <div class="tests-grid">
-            <div class="test-card">
-                <h3>🧠 Тест на стрессоустойчивость</h3>
-                <p>Оценка способности работать в стрессовых ситуациях, что критично для специалистов по информационной безопасности. Тест включает вопросы о реакции на нештатные ситуации и рабочую нагрузку.</p>
-                <div class="test-meta">
-                    <span>⏱️ 15 минут</span>
-                    <span>❓ 10 вопросов</span>
-                    <span>🎯 Для всех</span>
-                </div>
-                <button class="btn" onclick="startTest(1)">Начать тест</button>
-            </div>
-
-            <div class="test-card">
-                <h3>🔍 Тест на внимание</h3>
-                <p>Проверка способности к концентрации и вниманию к деталям. Особенно важно для анализа логов и выявления аномалий в системах безопасности.</p>
-                <div class="test-meta">
-                    <span>⏱️ 20 минут</span>
-                    <span>❓ 15 вопросов</span>
-                    <span>🎯 Для аналитиков</span>
-                </div>
-                <button class="btn secondary">Скоро доступно</button>
-            </div>
-
-            <div class="test-card">
-                <h3>💭 Аналитическое мышление</h3>
-                <p>Оценка логического и аналитического мышления, необходимого для расследования инцидентов информационной безопасности.</p>
-                <div class="test-meta">
-                    <span>⏱️ 25 минут</span>
-                    <span>❓ 12 вопросов</span>
-                    <span>🎯 Для исследователей</span>
-                </div>
-                <button class="btn secondary">Скоро доступно</button>
-            </div>
+        <div id="testsContainer">
+            <div class="loading">Загрузка тестов...</div>
         </div>
     </div>
 
@@ -169,15 +168,69 @@
         }
 
         // Загружаем список тестов с API
-        document.addEventListener('DOMContentLoaded', function() {
-            fetch('/api/tests')
-                .then(response => response.json())
+        function loadTests() {
+            const token = localStorage.getItem('token');
+            const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+            fetch('/api/tests', { headers })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Ошибка загрузки тестов');
+                    }
+                    return response.json();
+                })
                 .then(data => {
-                    console.log('Available tests:', data);
+                    displayTests(data.tests);
                 })
                 .catch(error => {
                     console.log('Error loading tests:', error);
+                    document.getElementById('testsContainer').innerHTML = `
+                        <div class="no-tests">
+                            <h3>Не удалось загрузить тесты</h3>
+                            <p>Попробуйте обновить страницу или проверьте подключение к интернету</p>
+                        </div>
+                    `;
                 });
+        }
+
+        function displayTests(tests) {
+            const testsContainer = document.getElementById('testsContainer');
+            
+            if (!tests || tests.length === 0) {
+                testsContainer.innerHTML = `
+                    <div class="no-tests">
+                        <h3>Нет доступных тестов</h3>
+                        <p>В данный момент нет активных тестов для прохождения</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let testsHtml = '<div class="tests-grid">';
+            
+            tests.forEach(test => {
+                testsHtml += `
+                    <div class="test-card">
+                        <h3>🧠 ${test.title}</h3>
+                        <p>${test.description || 'Описание теста'}</p>
+                        <div class="test-meta">
+                            <span>❓ ${test.estimated_time || 'Несколько'} минут</span>
+                            <span>🎯 Для всех</span>
+                        </div>
+                        <button class="btn" onclick="startTest(${test.id})">
+                            Начать тест
+                        </button>
+                    </div>
+                `;
+            });
+            
+            testsHtml += '</div>';
+            testsContainer.innerHTML = testsHtml;
+        }
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTests();
         });
     </script>
 </body>
