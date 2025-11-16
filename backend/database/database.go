@@ -47,7 +47,7 @@ func InitDB() (*sql.DB, error) {
 	DB.SetMaxIdleConns(25)
 	DB.SetConnMaxLifetime(5 * time.Minute)
 
-	// Пробуем подключиться с повторными попытками
+	// Пробуем подключиться с повторными попытками (ждём пока PostgreSQL запустится)
 	for i := 0; i < 10; i++ {
 		err = DB.Ping()
 		if err == nil {

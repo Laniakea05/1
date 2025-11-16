@@ -14,7 +14,7 @@
             font-family: 'Arial', sans-serif;
             line-height: 1.6;
             color: #333;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #3498db 0%, #2c3e50 100%);
             min-height: 100vh;
         }
         .container {
@@ -34,6 +34,7 @@
             color: #2c3e50;
             margin-bottom: 10px;
             font-size: 2.5em;
+            font-weight: bold;
         }
         .header p {
             color: #7f8c8d;
@@ -48,24 +49,25 @@
         }
         .nav a {
             padding: 15px 30px;
-            background: #3498db;
+            background: #e74c3c;
             color: white;
             text-decoration: none;
             border-radius: 8px;
             font-weight: bold;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         .nav a:hover {
-            background: #2980b9;
+            background: #c0392b;
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
         }
         .nav a.admin {
             background: #e74c3c;
-        }
-        .nav a.admin:hover {
-            background: #c0392b;
+            display: none;
         }
         .status {
             background: white;
@@ -73,11 +75,12 @@
             border-radius: 10px;
             margin: 30px 0;
             text-align: center;
+            display: none;
         }
         .features {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 25px;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
             margin: 40px 0;
         }
         .feature {
@@ -91,12 +94,19 @@
         .feature:hover {
             transform: translateY(-5px);
         }
+        .feature-icon {
+            font-size: 3em;
+            margin-bottom: 20px;
+        }
         .feature h3 {
             color: #2c3e50;
             margin-bottom: 15px;
+            font-size: 1.4em;
         }
         .feature p {
             color: #7f8c8d;
+            line-height: 1.8;
+            font-size: 1.1em;
         }
         .footer {
             text-align: center;
@@ -104,40 +114,62 @@
             color: white;
             opacity: 0.8;
         }
+        .system-title {
+            font-size: 2.8em;
+            color: #2c3e50;
+            font-weight: bold;
+            margin-bottom: 10px;
+            line-height: 1.2;
+        }
+        .nav-icon {
+            font-size: 1.2em;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔐 Система оценки психологической пригодности</h1>
-            <p>Специалистов по информационной безопасности</p>
+            <div class="system-title">Система оценки психологического состояния</div>
         </div>
 
         <div class="nav">
-            <a href="/login">🔑 Вход в систему</a>
-            <a href="/register">📝 Регистрация</a>
-            <a href="/tests">🧪 Пройти тесты</a>
-            <a href="/dashboard">👤 Личный кабинет</a>
-            <a href="/admin" class="admin">⚙️ Панель администратора</a>
+            <a href="/login">
+                <span class="nav-icon">🔑</span>
+                Вход в систему
+            </a>
+            <a href="/register">
+                <span class="nav-icon">📝</span>
+                Регистрация
+            </a>
+            <a href="/tests">
+                <span class="nav-icon">🧪</span>
+                Пройти тесты
+            </a>
+            <a href="/dashboard">
+                <span class="nav-icon">👤</span>
+                Личный кабинет
+            </a>
+            <a href="/admin" class="admin">
+                <span class="nav-icon">⚙️</span>
+                Панель администратора
+            </a>
         </div>
 
-        <div class="status">
-            <h3>🔄 Статус системы</h3>
+        <div class="status" id="statusSection">
+            <h3>Статус системы</h3>
             <div id="status">Проверка подключения...</div>
         </div>
 
         <div class="features">
             <div class="feature">
-                <h3>🧠 Психологическое тестирование</h3>
-                <p>Комплексная оценка психологических качеств, необходимых для работы в сфере информационной безопасности</p>
+                <div class="feature-icon">🧠</div>
+                <h3>Психологическое тестирование</h3>
+                <p>Комплексная оценка психологического состояния через серию специализированных тестов. Наша система позволяет выявить уровень стрессоустойчивости, эмоциональной стабильности и других важных психологических характеристик.</p>
             </div>
             <div class="feature">
-                <h3>📊 Детальная аналитика</h3>
-                <p>Подробные отчеты и рекомендации по результатам тестирования</p>
-            </div>
-            <div class="feature">
-                <h3>🛡️ Безопасность данных</h3>
-                <p>Все результаты хранятся в защищенной базе данных</p>
+                <div class="feature-icon">📊</div>
+                <h3>Детальная аналитика</h3>
+                <p>Получите подробные отчеты с рекомендациями по результатам тестирования. Система анализирует ваши ответы и предоставляет персональные рекомендации по улучшению психологического состояния.</p>
             </div>
         </div>
 
@@ -147,19 +179,32 @@
     </div>
 
     <script>
-        // Проверяем статус API
-        fetch('/api/health')
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('status').innerHTML = 
-                    `✅ <strong>Сервер работает</strong><br>
-                     📊 Статус: ${data.status}<br>
-                     🗄️ База данных: ${data.database || 'connected'}`;
-            })
-            .catch(error => {
-                document.getElementById('status').innerHTML = 
-                    '❌ <strong>Ошибка подключения к серверу</strong>';
-            });
+        function checkAuthStatus() {
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            
+            if (token && user.role === 'admin') {
+                document.querySelector('.nav a.admin').style.display = 'flex';
+                document.getElementById('statusSection').style.display = 'block';
+                
+                fetch('/api/health')
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('status').innerHTML = 
+                            `✅ <strong>Сервер работает</strong><br>
+                             📊 Статус: ${data.status}<br>
+                             🗄️ База данных: ${data.database || 'connected'}`;
+                    })
+                    .catch(error => {
+                        document.getElementById('status').innerHTML = 
+                            '❌ <strong>Ошибка подключения к серверу</strong>';
+                    });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuthStatus();
+        });
     </script>
 </body>
 </html>

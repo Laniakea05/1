@@ -12,7 +12,7 @@
         }
         body {
             font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #3498db 0%, #2c3e50 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -33,6 +33,10 @@
         .logo h1 {
             color: #2c3e50;
             font-size: 1.8em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
         .form-group {
             margin-bottom: 20px;
@@ -42,6 +46,9 @@
             margin-bottom: 8px;
             color: #2c3e50;
             font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         input {
             width: 100%;
@@ -58,7 +65,7 @@
         button {
             width: 100%;
             padding: 14px;
-            background: #3498db;
+            background: #e74c3c;
             color: white;
             border: none;
             border-radius: 8px;
@@ -66,9 +73,13 @@
             font-weight: bold;
             cursor: pointer;
             transition: background 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
         button:hover {
-            background: #2980b9;
+            background: #c0392b;
         }
         .links {
             text-align: center;
@@ -98,13 +109,16 @@
         .test-accounts h4 {
             margin-bottom: 10px;
             color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
     </style>
 </head>
 <body>
     <div class="login-container">
         <div class="logo">
-            <h1>🔐 Вход в систему</h1>
+            <h1>🔑 Вход в систему</h1>
         </div>
 
         <form id="loginForm">
@@ -116,11 +130,14 @@
                 <label>🔒 Пароль:</label>
                 <input type="password" name="password" required placeholder="Введите пароль">
             </div>
-            <button type="submit">Войти в систему</button>
+            <button type="submit">
+                <span>🚀</span>
+                Войти в систему
+            </button>
         </form>
 
         <div class="test-accounts">
-            <h4>Тестовые аккаунты:</h4>
+            <h4>👥 Тестовые аккаунты:</h4>
             <p><strong>Админ:</strong> admin@psycho.test / admin123</p>
             <p><strong>Пользователь:</strong> user@test.ru / user123</p>
         </div>
@@ -169,7 +186,6 @@
             });
         });
 
-        // Автозаполнение для тестирования
         document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('test') === 'admin') {
