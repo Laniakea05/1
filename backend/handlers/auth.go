@@ -1,4 +1,3 @@
-
 package handlers
 
 import (
@@ -63,6 +62,35 @@ func CreateTestUsers() {
 	}
 	
 	fmt.Println("✅ Все тестовые пользователи созданы!")
+}
+
+// CheckEmail проверяет доступность email
+func CheckEmail(c *gin.Context) {
+	var checkReq struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+
+	if err := c.ShouldBindJSON(&checkReq); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат email"})
+		return
+	}
+
+	// Проверяем существует ли пользователь с таким email
+	var exists bool
+	err := database.DB.QueryRow(
+		"SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)",
+		checkReq.Email,
+	).Scan(&exists)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка проверки email"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"available": !exists,
+		"email":     checkReq.Email,
+	})
 }
 
 func Login(c *gin.Context) {

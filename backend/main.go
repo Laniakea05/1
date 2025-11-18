@@ -48,6 +48,7 @@ func main() {
 		{
 			auth.POST("/login", handlers.Login)
 			auth.POST("/register", handlers.Register)
+			auth.POST("/check-email", handlers.CheckEmail) // НОВЫЙ ЭНДПОИНТ
 		}
 
 		tests := api.Group("/tests")
@@ -110,7 +111,7 @@ func main() {
 	router.GET("/test/:id", handlers.TestTakingPage)
 	router.GET("/test-result", handlers.TestResultPage)
 	router.GET("/admin", handlers.AdminPage)
-	router.GET("/admin/test-edit", handlers.TestEditPage) // НОВЫЙ РОУТ
+	router.GET("/admin/test-edit", handlers.TestEditPage)
 
 	log.Println("🚀 Server starting on http://localhost:8080")
 	router.Run(":8080")

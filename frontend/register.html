@@ -62,6 +62,12 @@
             outline: none;
             border-color: #3498db;
         }
+        input.error {
+            border-color: #e74c3c;
+        }
+        input.success {
+            border-color: #27ae60;
+        }
         button {
             width: 100%;
             padding: 14px;
@@ -80,6 +86,10 @@
         }
         button:hover {
             background: #c0392b;
+        }
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
         }
         .links {
             text-align: center;
@@ -104,6 +114,20 @@
             color: #7f8c8d;
             margin-top: 5px;
         }
+        .email-status {
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+        }
+        .email-status.checking {
+            color: #3498db;
+        }
+        .email-status.available {
+            color: #27ae60;
+        }
+        .email-status.taken {
+            color: #e74c3c;
+        }
     </style>
 </head>
 <body>
@@ -115,22 +139,23 @@
         <form id="registerForm">
             <div class="form-group">
                 <label>👤 Полное имя:</label>
-                <input type="text" name="full_name" required placeholder="Иванов Иван Иванович">
+                <input type="text" name="full_name" required placeholder="Иванов Иван Иванович" id="fullName">
             </div>
             <div class="form-group">
                 <label>📧 Email:</label>
-                <input type="email" name="email" required placeholder="example@mail.ru">
+                <input type="email" name="email" required placeholder="example@mail.ru" id="email">
+                <div class="email-status" id="emailStatus"></div>
             </div>
             <div class="form-group">
                 <label>🔒 Пароль:</label>
-                <input type="password" name="password" required placeholder="Не менее 6 символов" minlength="6">
+                <input type="password" name="password" required placeholder="Не менее 6 символов" minlength="6" id="password">
                 <div class="requirements">Пароль должен содержать минимум 6 символов</div>
             </div>
             <div class="form-group">
                 <label>🔒 Подтверждение пароля:</label>
-                <input type="password" name="confirm_password" required placeholder="Повторите пароль">
+                <input type="password" name="confirm_password" required placeholder="Повторите пароль" id="confirmPassword">
             </div>
-            <button type="submit">
+            <button type="submit" id="submitBtn">
                 <span>🚀</span>
                 Зарегистрироваться
             </button>
@@ -145,9 +170,114 @@
     </div>
 
     <script>
+        let emailCheckTimeout = null;
+        let isEmailAvailable = false;
+
+        // Функция проверки email
+        function checkEmailAvailability(email) {
+            const emailStatus = document.getElementById('emailStatus');
+            const emailInput = document.getElementById('email');
+            const submitBtn = document.getElementById('submitBtn');
+
+            if (!email || !isValidEmail(email)) {
+                emailStatus.style.display = 'none';
+                emailInput.classList.remove('success', 'error');
+                submitBtn.disabled = true;
+                return;
+            }
+
+            // Показываем статус проверки
+            emailStatus.textContent = '⏳ Проверяем email...';
+            emailStatus.className = 'email-status checking';
+            emailStatus.style.display = 'block';
+            emailInput.classList.remove('success', 'error');
+            submitBtn.disabled = true;
+
+            // Отправляем запрос на проверку
+            fetch('/api/auth/check-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email: email })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.available) {
+                    emailStatus.textContent = '✅ Email доступен';
+                    emailStatus.className = 'email-status available';
+                    emailInput.classList.remove('error');
+                    emailInput.classList.add('success');
+                    isEmailAvailable = true;
+                } else {
+                    emailStatus.textContent = '❌ Email уже занят';
+                    emailStatus.className = 'email-status taken';
+                    emailInput.classList.remove('success');
+                    emailInput.classList.add('error');
+                    isEmailAvailable = false;
+                }
+                updateSubmitButton();
+            })
+            .catch(error => {
+                emailStatus.textContent = '⚠️ Ошибка проверки';
+                emailStatus.className = 'email-status taken';
+                emailInput.classList.add('error');
+                isEmailAvailable = false;
+                updateSubmitButton();
+            });
+        }
+
+        // Функция валидации email
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        // Функция обновления состояния кнопки отправки
+        function updateSubmitButton() {
+            const submitBtn = document.getElementById('submitBtn');
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const fullName = document.getElementById('fullName').value;
+            
+            const isFormValid = fullName && 
+                              password.length >= 6 && 
+                              password === confirmPassword && 
+                              isEmailAvailable;
+
+            submitBtn.disabled = !isFormValid;
+        }
+
+        // Обработчики событий
+        document.getElementById('email').addEventListener('input', function(e) {
+            const email = e.target.value.trim();
+            
+            // Очищаем предыдущий таймаут
+            if (emailCheckTimeout) {
+                clearTimeout(emailCheckTimeout);
+            }
+            
+            // Устанавливаем новый таймаут для проверки (500ms после окончания ввода)
+            emailCheckTimeout = setTimeout(() => {
+                checkEmailAvailability(email);
+            }, 500);
+        });
+
+        // Проверка других полей формы
+        document.getElementById('fullName').addEventListener('input', updateSubmitButton);
+        document.getElementById('password').addEventListener('input', updateSubmitButton);
+        document.getElementById('confirmPassword').addEventListener('input', updateSubmitButton);
+
+        // Обработчик отправки формы
         document.getElementById('registerForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
+            if (!isEmailAvailable) {
+                document.getElementById('message').innerHTML = 
+                    '<p style="color: #e74c3c;">❌ Пожалуйста, используйте другой email</p>';
+                return;
+            }
+
             const formData = new FormData(this);
             const password = formData.get('password');
             const confirmPassword = formData.get('confirm_password');
@@ -165,7 +295,10 @@
             };
 
             const messageDiv = document.getElementById('message');
+            const submitBtn = document.getElementById('submitBtn');
+            
             messageDiv.innerHTML = '<p style="color: #3498db;">⏳ Регистрация...</p>';
+            submitBtn.disabled = true;
 
             fetch('/api/auth/register', {
                 method: 'POST',
@@ -183,11 +316,18 @@
                     setTimeout(() => window.location.href = '/dashboard', 1500);
                 } else {
                     messageDiv.innerHTML = `<p style="color: #e74c3c;">❌ ${data.error || 'Ошибка регистрации'}</p>`;
+                    submitBtn.disabled = false;
                 }
             })
             .catch(error => {
                 messageDiv.innerHTML = '<p style="color: #e74c3c;">❌ Ошибка сети или сервера</p>';
+                submitBtn.disabled = false;
             });
+        });
+
+        // Инициализация - блокируем кнопку при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('submitBtn').disabled = true;
         });
     </script>
 </body>
