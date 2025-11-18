@@ -90,7 +90,7 @@
             border-left: 4px solid #3498db;
         }
         .stat-number {
-            font-size: 2.5em;
+            font-size: 1.5em;
             font-weight: bold;
             color: #3498db;
             margin-bottom: 10px;
@@ -180,6 +180,15 @@
         .state-satisfactory { background: #fcf3cf; color: #f39c12; }
         .state-warning { background: #fdebd0; color: #e67e22; }
         .state-critical { background: #fadbd8; color: #e74c3c; }
+        .hidden-id {
+            display: none;
+        }
+        .blocked-user {
+            background-color: #fff5f5;
+        }
+        .blocked-user:hover {
+            background-color: #ffeaea;
+        }
     </style>
 </head>
 <body>
@@ -238,12 +247,12 @@
                 <table id="usersTable" style="display: none;">
                     <thead>
                         <tr>
-                            <th>ID</th>
                             <th>Имя</th>
                             <th>Email</th>
                             <th>Роль</th>
                             <th>Тестов</th>
                             <th>Дата регистрации</th>
+                            <th>Статус</th>
                             <th>Действия</th>
                         </tr>
                     </thead>
@@ -261,7 +270,6 @@
                 <table id="testsTable" style="display: none;">
                     <thead>
                         <tr>
-                            <th>ID</th>
                             <th>Название</th>
                             <th>Описание</th>
                             <th>Вопросов</th>
@@ -283,7 +291,6 @@
                 <table id="resultsTable" style="display: none;">
                     <thead>
                         <tr>
-                            <th>ID</th>
                             <th>Пользователь</th>
                             <th>Тест</th>
                             <th>Результат</th>
@@ -388,16 +395,25 @@
                 tbody.innerHTML = '';
 
                 users.forEach(user => {
+                    const isBlocked = user.is_blocked;
                     const row = document.createElement('tr');
+                    if (isBlocked) {
+                        row.classList.add('blocked-user');
+                    }
+                    
                     row.innerHTML = `
-                        <td>${user.id}</td>
                         <td>${user.full_name}</td>
                         <td>${user.email}</td>
                         <td><span style="color: ${user.role === 'admin' ? '#e74c3c' : '#3498db'}">${user.role}</span></td>
                         <td>${user.tests_count}</td>
-                        <td>${user.created_at}</td>
+                        <td>${formatDateTime(user.created_at)}</td>
+                        <td>${isBlocked ? '❌ Заблокирован' : '✅ Активен'}</td>
                         <td class="actions">
-                            ${user.role !== 'admin' ? `<button class="btn danger" onclick="blockUser(${user.id})">Заблокировать</button>` : ''}
+                            ${user.role !== 'admin' ? 
+                                `<button class="btn ${isBlocked ? 'success' : 'danger'}" onclick="toggleBlockUser(${user.id}, ${isBlocked})">
+                                    ${isBlocked ? 'Разблокировать' : 'Заблокировать'}
+                                </button>` 
+                                : ''}
                         </td>
                     `;
                     tbody.appendChild(row);
@@ -412,30 +428,36 @@
             });
         }
 
-        // Блокировка пользователя
-        function blockUser(userId) {
-            if (!confirm('Вы уверены, что хотите заблокировать этого пользователя?')) {
+        // Блокировка/разблокировка пользователя - ИСПРАВЛЕННАЯ ВЕРСИЯ
+        function toggleBlockUser(userId, isCurrentlyBlocked) {
+            const action = isCurrentlyBlocked ? 'разблокировать' : 'заблокировать';
+            if (!confirm(`Вы уверены, что хотите ${action} этого пользователя?`)) {
                 return;
             }
+
+            // Инвертируем текущее состояние
+            const newBlockedState = !isCurrentlyBlocked;
 
             fetch(`/api/admin/users/${userId}/block`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
-                }
+                },
+                body: JSON.stringify({ blocked: newBlockedState })
             })
             .then(response => {
-                if (!response.ok) throw new Error('Ошибка блокировки пользователя');
+                if (!response.ok) throw new Error('Ошибка изменения статуса пользователя');
                 return response.json();
             })
             .then(data => {
-                alert('Пользователь заблокирован');
+                const actionText = newBlockedState ? 'заблокирован' : 'разблокирован';
+                alert(`Пользователь ${actionText}`);
                 loadUsers(); // Обновляем список
             })
             .catch(error => {
-                console.error('Error blocking user:', error);
-                alert('Ошибка блокировки пользователя');
+                console.error('Error toggling user block:', error);
+                alert('Ошибка изменения статуса пользователя: ' + error.message);
             });
         }
 
@@ -461,12 +483,11 @@
                 tests.forEach(test => {
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td>${test.id}</td>
                         <td>${test.title}</td>
                         <td>${test.description || '-'}</td>
                         <td>${test.questions_count}</td>
                         <td>${test.is_active ? '✅ Активен' : '❌ Неактивен'}</td>
-                        <td>${test.created_at}</td>
+                        <td>${formatDateTime(test.created_at)}</td>
                         <td class="actions">
                             <button class="btn warning" onclick="editTest(${test.id})">✏️ Редактировать</button>
                             <button class="btn danger" onclick="deleteTest(${test.id})">🗑️ Удалить</button>
@@ -513,13 +534,11 @@
         // Редактирование теста
         function editTest(testId) {
             window.location.href = `/admin/test-edit?id=${testId}`;
-            // window.location.href = `/admin/test-edit/${testId}`;
         }
 
         // Создание теста
         function createTest() {
             window.location.href = '/admin/test-edit';
-            // window.location.href = '/admin/test-create';
         }
 
         // Загрузка результатов
@@ -544,12 +563,11 @@
                 results.forEach(result => {
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td>${result.id}</td>
                         <td>${result.user_name}<br><small>${result.user_email}</small></td>
                         <td>${result.test_title}</td>
                         <td>${result.score}<br><small>${result.percentage}</small></td>
                         <td><span class="state-badge ${getStateClass(result.interpretation)}">${result.interpretation}</span></td>
-                        <td>${result.completed_at}</td>
+                        <td>${formatDateTime(result.completed_at)}</td>
                     `;
                     tbody.appendChild(row);
                 });
@@ -561,6 +579,37 @@
                 console.error('Error loading results:', error);
                 document.getElementById('resultsLoading').innerHTML = 'Ошибка загрузки результатов';
             });
+        }
+
+        // Функция форматирования даты и времени
+        function formatDateTime(dateString) {
+            if (!dateString || dateString === 'NaN.NaN.NaN NaN.NaN.NaN') {
+                return '-';
+            }
+            
+            try {
+                // Если дата уже в правильном формате, возвращаем как есть
+                if (dateString.match(/^\d{4}\.\d{2}\.\d{2} \d{2}\.\d{2}\.\d{2}$/)) {
+                    return dateString;
+                }
+                
+                // Пытаемся распарсить дату
+                const date = new Date(dateString);
+                if (isNaN(date.getTime())) {
+                    return '-';
+                }
+                
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const seconds = String(date.getSeconds()).padStart(2, '0');
+                
+                return `${year}.${month}.${day} ${hours}.${minutes}.${seconds}`;
+            } catch (e) {
+                return '-';
+            }
         }
 
         // Вспомогательная функция для определения класса состояния

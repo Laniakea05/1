@@ -1,7 +1,9 @@
+
 package handlers
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"psycho-test-system/database"
 	"psycho-test-system/models"
@@ -16,9 +18,17 @@ func CreateTestUsers() {
 	// Проверяем есть ли уже пользователи
 	var count int
 	err := database.DB.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
-	if err != nil || count > 0 {
+	if err != nil {
+		fmt.Printf("Ошибка проверки пользователей: %v\n", err)
+		return
+	}
+	
+	if count > 0 {
+		fmt.Println("✅ Пользователи уже существуют, пропускаем создание")
 		return // Пользователи уже есть
 	}
+
+	fmt.Println("🔄 Создаем тестовых пользователей...")
 
 	// Создаём тестовых пользователей
 	users := []struct {
@@ -34,18 +44,25 @@ func CreateTestUsers() {
 	for _, u := range users {
 		hashedPassword, err := utils.HashPassword(u.password)
 		if err != nil {
-			continue // Пропускаем если ошибка хеширования
-		}
-		
-		_, err = database.DB.Exec(
-			"INSERT INTO users (email, password_hash, full_name, role) VALUES ($1, $2, $3, $4)",
-			u.email, hashedPassword, u.fullName, u.role,
-		)
-		if err != nil {
-			// Логируем ошибку, но продолжаем
+			fmt.Printf("❌ Ошибка хеширования пароля для %s: %v\n", u.email, err)
 			continue
 		}
+		
+		fmt.Printf("Создаем пользователя: %s (%s)\n", u.email, u.role)
+		
+		_, err = database.DB.Exec(
+			"INSERT INTO users (email, password_hash, full_name, role, is_blocked) VALUES ($1, $2, $3, $4, $5)",
+			u.email, hashedPassword, u.fullName, u.role, false,
+		)
+		if err != nil {
+			fmt.Printf("❌ Ошибка создания пользователя %s: %v\n", u.email, err)
+			continue
+		}
+		
+		fmt.Printf("✅ Пользователь %s создан успешно!\n", u.email)
 	}
+	
+	fmt.Println("✅ Все тестовые пользователи созданы!")
 }
 
 func Login(c *gin.Context) {
@@ -57,16 +74,23 @@ func Login(c *gin.Context) {
 
 	// Ищем пользователя в БД
 	var user models.User
+	var isBlocked bool
 	err := database.DB.QueryRow(
-		"SELECT id, email, password_hash, full_name, role FROM users WHERE email = $1",
+		"SELECT id, email, password_hash, full_name, role, is_blocked FROM users WHERE email = $1",
 		loginReq.Email,
-	).Scan(&user.ID, &user.Email, &user.Password, &user.FullName, &user.Role)
+	).Scan(&user.ID, &user.Email, &user.Password, &user.FullName, &user.Role, &isBlocked)
 
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Неверный email или пароль"})
 		return
 	} else if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка базы данных: " + err.Error()})
+		return
+	}
+
+	// Проверяем заблокирован ли пользователь
+	if isBlocked {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Пользователь заблокирован"})
 		return
 	}
 
@@ -114,8 +138,8 @@ func Register(c *gin.Context) {
 	// Создаем пользователя в БД
 	var userID int
 	err = database.DB.QueryRow(
-		"INSERT INTO users (email, password_hash, full_name, role) VALUES ($1, $2, $3, $4) RETURNING id",
-		registerReq.Email, hashedPassword, registerReq.FullName, models.RoleUser,
+		"INSERT INTO users (email, password_hash, full_name, role, is_blocked) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+		registerReq.Email, hashedPassword, registerReq.FullName, models.RoleUser, false,
 	).Scan(&userID)
 
 	if err != nil {

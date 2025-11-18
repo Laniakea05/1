@@ -146,6 +146,7 @@
             margin: 10px 0;
             text-align: center;
         }
+        /* Убраны специальные стили для кнопки администратора */
     </style>
 </head>
 <body>
@@ -156,6 +157,7 @@
                 <div class="nav-links">
                     <span id="userEmail"></span>
                     <a href="/tests">🧪 Тесты</a>
+                    <a href="/admin" id="adminPanelLink" style="display: none;">⚙️ Панель администратора</a>
                     <a href="/">🏠 Главная</a>
                     <a href="#" onclick="logout()">🚪 Выйти</a>
                 </div>
@@ -209,6 +211,13 @@
         // Заполняем информацию о пользователе
         document.getElementById('userName').textContent = user.full_name || 'Пользователь';
         document.getElementById('userEmail').textContent = user.email || '';
+
+        // Проверяем права администратора
+        function checkAdminAccess() {
+            if (user.role === 'admin') {
+                document.getElementById('adminPanelLink').style.display = 'inline-block';
+            }
+        }
 
         // Загружаем реальную статистику
         function loadUserStats() {
@@ -285,6 +294,7 @@
         // Инициализация
         document.addEventListener('DOMContentLoaded', function() {
             loadUserStats();
+            checkAdminAccess(); // Проверяем права администратора
         });
     </script>
 </body>

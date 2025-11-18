@@ -1,3 +1,4 @@
+
 package handlers
 
 import (
@@ -81,10 +82,11 @@ func getStateFromScore(score float64) string {
 	}
 }
 
-// Получение всех пользователей
+// Получение всех пользователей с правильным форматом даты
 func GetAllUsers(c *gin.Context) {
 	rows, err := database.DB.Query(`
-		SELECT id, email, full_name, role, created_at, 
+		SELECT id, email, full_name, role, is_blocked,
+		       TO_CHAR(created_at AT TIME ZONE 'Europe/Moscow', 'YYYY.MM.DD HH24.MI.SS') as created_at,
 		       (SELECT COUNT(*) FROM test_results WHERE user_id = users.id) as tests_count
 		FROM users 
 		ORDER BY created_at DESC
@@ -102,11 +104,12 @@ func GetAllUsers(c *gin.Context) {
 			Email     string `json:"email"`
 			FullName  string `json:"full_name"`
 			Role      string `json:"role"`
+			IsBlocked bool   `json:"is_blocked"`
 			CreatedAt string `json:"created_at"`
 			TestsCount int   `json:"tests_count"`
 		}
 		
-		err := rows.Scan(&user.ID, &user.Email, &user.FullName, &user.Role, &user.CreatedAt, &user.TestsCount)
+		err := rows.Scan(&user.ID, &user.Email, &user.FullName, &user.Role, &user.IsBlocked, &user.CreatedAt, &user.TestsCount)
 		if err != nil {
 			continue
 		}
@@ -116,9 +119,9 @@ func GetAllUsers(c *gin.Context) {
 			"email":       user.Email,
 			"full_name":   user.FullName,
 			"role":        user.Role,
+			"is_blocked":  user.IsBlocked,
 			"created_at":  user.CreatedAt,
 			"tests_count": user.TestsCount,
-			"is_blocked":  false, // Пока не реализовано блокирование
 		})
 	}
 
@@ -133,21 +136,35 @@ func BlockUser(c *gin.Context) {
 		return
 	}
 
-	// Здесь можно добавить логику блокировки
-	// Например, добавить поле is_blocked в таблицу users
-	_, err = database.DB.Exec("UPDATE users SET is_blocked = true WHERE id = $1", userID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка блокировки пользователя"})
+	var requestData struct {
+		Blocked bool `json:"blocked"`
+	}
+	
+	if err := c.ShouldBindJSON(&requestData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат данных"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Пользователь заблокирован"})
+	// Блокируем/разблокируем пользователя
+	_, err = database.DB.Exec("UPDATE users SET is_blocked = $1 WHERE id = $2", requestData.Blocked, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка блокировки пользователя: " + err.Error()})
+		return
+	}
+
+	action := "заблокирован"
+	if !requestData.Blocked {
+		action = "разблокирован"
+	}
+	
+	c.JSON(http.StatusOK, gin.H{"message": "Пользователь " + action})
 }
 
-// Получение всех тестов
+// Получение всех тестов с правильным форматом даты
 func GetAllTests(c *gin.Context) {
 	rows, err := database.DB.Query(`
-		SELECT id, title, description, instructions, estimated_time, is_active, created_at,
+		SELECT id, title, description, instructions, estimated_time, is_active,
+		       TO_CHAR(created_at AT TIME ZONE 'Europe/Moscow', 'YYYY.MM.DD HH24.MI.SS') as created_at,
 		       (SELECT COUNT(*) FROM test_questions WHERE test_id = psychological_tests.id) as questions_count
 		FROM psychological_tests 
 		ORDER BY created_at DESC
@@ -224,12 +241,12 @@ func DeleteTest(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Тест удален"})
 }
 
-// Получение всех результатов тестирования
+// Получение всех результатов тестирования с правильным форматом даты
 func GetAllResults(c *gin.Context) {
 	rows, err := database.DB.Query(`
 		SELECT tr.id, u.full_name, u.email, pt.title, 
 		       tr.score, tr.max_score, tr.interpretation, 
-		       tr.completed_at
+		       TO_CHAR(tr.completed_at AT TIME ZONE 'Europe/Moscow', 'YYYY.MM.DD HH24.MI.SS') as completed_at
 		FROM test_results tr
 		JOIN users u ON tr.user_id = u.id
 		JOIN psychological_tests pt ON tr.test_id = pt.id

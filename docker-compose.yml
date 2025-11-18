@@ -8,6 +8,7 @@ services:
       POSTGRES_DB: psycho_test_system
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      TZ: Europe/Moscow  # ДОБАВЛЯЕМ ЧАСОВОЙ ПОЯС
     ports:
       - "5432:5432"
     volumes:
@@ -29,6 +30,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_NAME: psycho_test_system
+      TZ: Europe/Moscow  # ДОБАВЛЯЕМ ЧАСОВОЙ ПОЯС
     depends_on:
       - postgres
     networks:
