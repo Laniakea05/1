@@ -8,7 +8,9 @@ CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    full_name VARCHAR(255) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    first_name VARCHAR(100) NOT NULL,
+    patronymic VARCHAR(100),
     role VARCHAR(50) DEFAULT 'user',
     is_blocked BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -178,15 +180,15 @@ VALUES
    {"text": "Постоянно", "weight": 5}]', 3)
 ON CONFLICT DO NOTHING;
 
--- УБИРАЕМ тестовые результаты, так как пользователей еще нет
--- Они создадутся после запуска системы
-
 -- Комментарии к таблицам для документации
 COMMENT ON TABLE users IS 'Таблица пользователей системы';
 COMMENT ON TABLE psychological_tests IS 'Таблица психологических тестов';
 COMMENT ON TABLE test_questions IS 'Таблица вопросов тестов с вариантами ответов и весами';
 COMMENT ON TABLE test_results IS 'Таблица результатов прохождения тестов';
 
+COMMENT ON COLUMN users.last_name IS 'Фамилия пользователя';
+COMMENT ON COLUMN users.first_name IS 'Имя пользователя';
+COMMENT ON COLUMN users.patronymic IS 'Отчество пользователя';
 COMMENT ON COLUMN users.is_blocked IS 'Флаг блокировки пользователя';
 COMMENT ON COLUMN test_questions.options IS 'JSON массив объектов с текстом ответа и весом (1-5)';
 COMMENT ON COLUMN test_results.interpretation IS 'Текстовая интерпретация результата теста';

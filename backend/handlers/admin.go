@@ -1,4 +1,3 @@
-
 package handlers
 
 import (
@@ -85,7 +84,7 @@ func getStateFromScore(score float64) string {
 // Получение всех пользователей с правильным форматом даты
 func GetAllUsers(c *gin.Context) {
 	rows, err := database.DB.Query(`
-		SELECT id, email, full_name, role, is_blocked,
+		SELECT id, email, last_name, first_name, patronymic, role, is_blocked,
 		       TO_CHAR(created_at AT TIME ZONE 'Europe/Moscow', 'YYYY.MM.DD HH24.MI.SS') as created_at,
 		       (SELECT COUNT(*) FROM test_results WHERE user_id = users.id) as tests_count
 		FROM users 
@@ -100,16 +99,18 @@ func GetAllUsers(c *gin.Context) {
 	var users []map[string]interface{}
 	for rows.Next() {
 		var user struct {
-			ID        int    `json:"id"`
-			Email     string `json:"email"`
-			FullName  string `json:"full_name"`
-			Role      string `json:"role"`
-			IsBlocked bool   `json:"is_blocked"`
-			CreatedAt string `json:"created_at"`
-			TestsCount int   `json:"tests_count"`
+			ID         int    `json:"id"`
+			Email      string `json:"email"`
+			LastName   string `json:"last_name"`
+			FirstName  string `json:"first_name"`
+			Patronymic string `json:"patronymic"`
+			Role       string `json:"role"`
+			IsBlocked  bool   `json:"is_blocked"`
+			CreatedAt  string `json:"created_at"`
+			TestsCount int    `json:"tests_count"`
 		}
 		
-		err := rows.Scan(&user.ID, &user.Email, &user.FullName, &user.Role, &user.IsBlocked, &user.CreatedAt, &user.TestsCount)
+		err := rows.Scan(&user.ID, &user.Email, &user.LastName, &user.FirstName, &user.Patronymic, &user.Role, &user.IsBlocked, &user.CreatedAt, &user.TestsCount)
 		if err != nil {
 			continue
 		}
@@ -117,7 +118,10 @@ func GetAllUsers(c *gin.Context) {
 		users = append(users, map[string]interface{}{
 			"id":          user.ID,
 			"email":       user.Email,
-			"full_name":   user.FullName,
+			"last_name":   user.LastName,
+			"first_name":  user.FirstName,
+			"patronymic":  user.Patronymic,
+			"full_name":   user.LastName + " " + user.FirstName + " " + user.Patronymic,
 			"role":        user.Role,
 			"is_blocked":  user.IsBlocked,
 			"created_at":  user.CreatedAt,
@@ -244,7 +248,7 @@ func DeleteTest(c *gin.Context) {
 // Получение всех результатов тестирования с правильным форматом даты
 func GetAllResults(c *gin.Context) {
 	rows, err := database.DB.Query(`
-		SELECT tr.id, u.full_name, u.email, pt.title, 
+		SELECT tr.id, u.last_name, u.first_name, u.patronymic, u.email, pt.title, 
 		       tr.score, tr.max_score, tr.interpretation, 
 		       TO_CHAR(tr.completed_at AT TIME ZONE 'Europe/Moscow', 'YYYY.MM.DD HH24.MI.SS') as completed_at
 		FROM test_results tr
@@ -262,7 +266,9 @@ func GetAllResults(c *gin.Context) {
 	for rows.Next() {
 		var result struct {
 			ID            int     `json:"id"`
-			UserName      string  `json:"user_name"`
+			LastName      string  `json:"last_name"`
+			FirstName     string  `json:"first_name"`
+			Patronymic    string  `json:"patronymic"`
 			UserEmail     string  `json:"user_email"`
 			TestTitle     string  `json:"test_title"`
 			Score         float64 `json:"score"`
@@ -271,7 +277,7 @@ func GetAllResults(c *gin.Context) {
 			CompletedAt   string  `json:"completed_at"`
 		}
 		
-		err := rows.Scan(&result.ID, &result.UserName, &result.UserEmail, &result.TestTitle,
+		err := rows.Scan(&result.ID, &result.LastName, &result.FirstName, &result.Patronymic, &result.UserEmail, &result.TestTitle,
 			&result.Score, &result.MaxScore, &result.Interpretation, &result.CompletedAt)
 		if err != nil {
 			continue
@@ -281,7 +287,7 @@ func GetAllResults(c *gin.Context) {
 
 		results = append(results, map[string]interface{}{
 			"id":            result.ID,
-			"user_name":     result.UserName,
+			"user_name":     result.LastName + " " + result.FirstName + " " + result.Patronymic,
 			"user_email":    result.UserEmail,
 			"test_title":    result.TestTitle,
 			"score":         fmt.Sprintf("%.1f/%.1f", result.Score, result.MaxScore),

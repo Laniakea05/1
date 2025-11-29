@@ -56,9 +56,12 @@
             color: #2c3e50;
             margin-bottom: 10px;
         }
-        .user-info p {
+        .user-details {
             color: #7f8c8d;
             line-height: 1.6;
+        }
+        .user-details p {
+            margin-bottom: 5px;
         }
         .stats {
             display: grid;
@@ -167,7 +170,11 @@
     <div class="container">
         <div class="user-info">
             <h2>Добро пожаловать, <span id="userName"></span>!</h2>
-            <p>Здесь вы можете просматривать свои результаты тестов и управлять аккаунтом.</p>
+            <div class="user-details">
+                <p><strong>ФИО:</strong> <span id="userFullName"></span></p>
+                <p><strong>Email:</strong> <span id="userEmailDetails"></span></p>
+                <p><strong>Роль:</strong> <span id="userRole"></span></p>
+            </div>
         </div>
 
         <div class="stats">
@@ -208,8 +215,12 @@
         }
 
         // Заполняем информацию о пользователе
-        document.getElementById('userName').textContent = user.full_name || 'Пользователь';
+        document.getElementById('userName').textContent = user.first_name || 'Пользователь';
+        document.getElementById('userFullName').textContent = 
+            (user.last_name || '') + ' ' + (user.first_name || '') + ' ' + (user.patronymic || '');
         document.getElementById('userEmail').textContent = user.email || '';
+        document.getElementById('userEmailDetails').textContent = user.email || '';
+        document.getElementById('userRole').textContent = user.role === 'admin' ? 'Администратор' : 'Пользователь';
 
         // Проверяем права администратора
         function checkAdminAccess() {

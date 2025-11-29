@@ -247,7 +247,7 @@
                 <table id="usersTable" style="display: none;">
                     <thead>
                         <tr>
-                            <th>Имя</th>
+                            <th>ФИО</th>
                             <th>Email</th>
                             <th>Роль</th>
                             <th>Тестов</th>
@@ -402,7 +402,7 @@
                     }
                     
                     row.innerHTML = `
-                        <td>${user.full_name}</td>
+                        <td>${user.last_name} ${user.first_name} ${user.patronymic || ''}</td>
                         <td>${user.email}</td>
                         <td><span style="color: ${user.role === 'admin' ? '#e74c3c' : '#3498db'}">${user.role}</span></td>
                         <td>${user.tests_count}</td>

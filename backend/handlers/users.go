@@ -16,17 +16,19 @@ func GetUserProfile(c *gin.Context) {
 	}
 
 	var user struct {
-		ID       int    `json:"id"`
-		Email    string `json:"email"`
-		FullName string `json:"full_name"`
-		Role     string `json:"role"`
+		ID         int    `json:"id"`
+		Email      string `json:"email"`
+		LastName   string `json:"last_name"`
+		FirstName  string `json:"first_name"`
+		Patronymic string `json:"patronymic"`
+		Role       string `json:"role"`
 	}
 
 	err := database.DB.QueryRow(`
-		SELECT id, email, full_name, role 
+		SELECT id, email, last_name, first_name, patronymic, role 
 		FROM users 
 		WHERE id = $1
-	`, userID).Scan(&user.ID, &user.Email, &user.FullName, &user.Role)
+	`, userID).Scan(&user.ID, &user.Email, &user.LastName, &user.FirstName, &user.Patronymic, &user.Role)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка получения данных пользователя"})
@@ -124,8 +126,10 @@ func UpdateUserProfile(c *gin.Context) {
 	}
 
 	var updateData struct {
-		FullName string `json:"full_name"`
-		Email    string `json:"email"`
+		LastName   string `json:"last_name"`
+		FirstName  string `json:"first_name"`
+		Patronymic string `json:"patronymic"`
+		Email      string `json:"email"`
 	}
 
 	if err := c.ShouldBindJSON(&updateData); err != nil {
@@ -135,9 +139,9 @@ func UpdateUserProfile(c *gin.Context) {
 
 	_, err := database.DB.Exec(`
 		UPDATE users 
-		SET full_name = $1, email = $2 
-		WHERE id = $3
-	`, updateData.FullName, updateData.Email, userID)
+		SET last_name = $1, first_name = $2, patronymic = $3, email = $4 
+		WHERE id = $5
+	`, updateData.LastName, updateData.FirstName, updateData.Patronymic, updateData.Email, userID)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка обновления профиля"})

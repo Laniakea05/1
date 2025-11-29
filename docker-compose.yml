@@ -8,9 +8,9 @@ services:
       POSTGRES_DB: psycho_test_system
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      TZ: Europe/Moscow  # ДОБАВЛЯЕМ ЧАСОВОЙ ПОЯС
+      TZ: Europe/Moscow
     ports:
-      - "5432:5432"
+      - "5433:5432"  # Изменяем внешний порт на 5433
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -30,7 +30,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_NAME: psycho_test_system
-      TZ: Europe/Moscow  # ДОБАВЛЯЕМ ЧАСОВОЙ ПОЯС
+      TZ: Europe/Moscow
     depends_on:
       - postgres
     networks:

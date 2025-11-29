@@ -31,13 +31,15 @@ func CreateTestUsers() {
 
 	// Создаём тестовых пользователей
 	users := []struct {
-		email    string
-		password string
-		fullName string
-		role     string
+		email      string
+		password   string
+		lastName   string
+		firstName  string
+		patronymic string
+		role       string
 	}{
-		{"admin@psycho.test", "admin123", "Администратор Системы", "admin"},
-		{"user@test.ru", "user123", "Тестовый Пользователь", "user"},
+		{"admin@psycho.test", "admin123", "Администратор", "Системы", "", "admin"},
+		{"user@test.ru", "user123", "Пользователь", "Тестовый", "Тестович", "user"},
 	}
 
 	for _, u := range users {
@@ -50,8 +52,8 @@ func CreateTestUsers() {
 		fmt.Printf("Создаем пользователя: %s (%s)\n", u.email, u.role)
 		
 		_, err = database.DB.Exec(
-			"INSERT INTO users (email, password_hash, full_name, role, is_blocked) VALUES ($1, $2, $3, $4, $5)",
-			u.email, hashedPassword, u.fullName, u.role, false,
+			"INSERT INTO users (email, password_hash, last_name, first_name, patronymic, role, is_blocked) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+			u.email, hashedPassword, u.lastName, u.firstName, u.patronymic, u.role, false,
 		)
 		if err != nil {
 			fmt.Printf("❌ Ошибка создания пользователя %s: %v\n", u.email, err)
@@ -104,9 +106,9 @@ func Login(c *gin.Context) {
 	var user models.User
 	var isBlocked bool
 	err := database.DB.QueryRow(
-		"SELECT id, email, password_hash, full_name, role, is_blocked FROM users WHERE email = $1",
+		"SELECT id, email, password_hash, last_name, first_name, patronymic, role, is_blocked FROM users WHERE email = $1",
 		loginReq.Email,
-	).Scan(&user.ID, &user.Email, &user.Password, &user.FullName, &user.Role, &isBlocked)
+	).Scan(&user.ID, &user.Email, &user.Password, &user.LastName, &user.FirstName, &user.Patronymic, &user.Role, &isBlocked)
 
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Неверный email или пароль"})
@@ -141,10 +143,13 @@ func Login(c *gin.Context) {
 		"message": "✅ Вход выполнен успешно!",
 		"token":   token,
 		"user": gin.H{
-			"id":        user.ID,
-			"email":     user.Email,
-			"full_name": user.FullName,
-			"role":      user.Role,
+			"id":         user.ID,
+			"email":      user.Email,
+			"last_name":  user.LastName,
+			"first_name": user.FirstName,
+			"patronymic": user.Patronymic,
+			"full_name":  user.LastName + " " + user.FirstName + " " + user.Patronymic,
+			"role":       user.Role,
 		},
 	})
 }
@@ -166,8 +171,8 @@ func Register(c *gin.Context) {
 	// Создаем пользователя в БД
 	var userID int
 	err = database.DB.QueryRow(
-		"INSERT INTO users (email, password_hash, full_name, role, is_blocked) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-		registerReq.Email, hashedPassword, registerReq.FullName, models.RoleUser, false,
+		"INSERT INTO users (email, password_hash, last_name, first_name, patronymic, role, is_blocked) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+		registerReq.Email, hashedPassword, registerReq.LastName, registerReq.FirstName, registerReq.Patronymic, models.RoleUser, false,
 	).Scan(&userID)
 
 	if err != nil {
@@ -186,10 +191,13 @@ func Register(c *gin.Context) {
 		"message": "✅ Пользователь зарегистрирован!",
 		"token":   token,
 		"user": gin.H{
-			"id":        userID,
-			"email":     registerReq.Email,
-			"full_name": registerReq.FullName,
-			"role":      models.RoleUser,
+			"id":         userID,
+			"email":      registerReq.Email,
+			"last_name":  registerReq.LastName,
+			"first_name": registerReq.FirstName,
+			"patronymic": registerReq.Patronymic,
+			"full_name":  registerReq.LastName + " " + registerReq.FirstName + " " + registerReq.Patronymic,
+			"role":       models.RoleUser,
 		},
 	})
 }

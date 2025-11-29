@@ -24,7 +24,7 @@
             border-radius: 15px;
             box-shadow: 0 15px 35px rgba(0,0,0,0.1);
             width: 100%;
-            max-width: 450px;
+            max-width: 500px;
         }
         .logo {
             text-align: center;
@@ -128,6 +128,14 @@
         .email-status.taken {
             color: #e74c3c;
         }
+        .name-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .full-width {
+            grid-column: 1 / -1;
+        }
     </style>
 </head>
 <body>
@@ -138,8 +146,20 @@
 
         <form id="registerForm">
             <div class="form-group">
-                <label>👤 Полное имя:</label>
-                <input type="text" name="full_name" required placeholder="Иванов Иван Иванович" id="fullName">
+                <div class="name-fields">
+                    <div>
+                        <label>👤 Фамилия:</label>
+                        <input type="text" name="last_name" required placeholder="Иванов" id="lastName">
+                    </div>
+                    <div>
+                        <label>👤 Имя:</label>
+                        <input type="text" name="first_name" required placeholder="Иван" id="firstName">
+                    </div>
+                    <div class="full-width">
+                        <label>👤 Отчество:</label>
+                        <input type="text" name="patronymic" placeholder="Иванович" id="patronymic">
+                    </div>
+                </div>
             </div>
             <div class="form-group">
                 <label>📧 Email:</label>
@@ -236,11 +256,13 @@
         // Функция обновления состояния кнопки отправки
         function updateSubmitButton() {
             const submitBtn = document.getElementById('submitBtn');
+            const lastName = document.getElementById('lastName').value;
+            const firstName = document.getElementById('firstName').value;
             const password = document.getElementById('password').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
-            const fullName = document.getElementById('fullName').value;
             
-            const isFormValid = fullName && 
+            const isFormValid = lastName && 
+                              firstName && 
                               password.length >= 6 && 
                               password === confirmPassword && 
                               isEmailAvailable;
@@ -264,7 +286,9 @@
         });
 
         // Проверка других полей формы
-        document.getElementById('fullName').addEventListener('input', updateSubmitButton);
+        document.getElementById('lastName').addEventListener('input', updateSubmitButton);
+        document.getElementById('firstName').addEventListener('input', updateSubmitButton);
+        document.getElementById('patronymic').addEventListener('input', updateSubmitButton);
         document.getElementById('password').addEventListener('input', updateSubmitButton);
         document.getElementById('confirmPassword').addEventListener('input', updateSubmitButton);
 
@@ -291,7 +315,9 @@
             const data = {
                 email: formData.get('email'),
                 password: password,
-                full_name: formData.get('full_name')
+                last_name: formData.get('last_name'),
+                first_name: formData.get('first_name'),
+                patronymic: formData.get('patronymic') || ''
             };
 
             const messageDiv = document.getElementById('message');
