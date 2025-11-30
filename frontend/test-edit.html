@@ -83,7 +83,7 @@
         }
         .question-header {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
         }
@@ -96,8 +96,8 @@
         .option-input {
             flex: 1;
         }
-        .weight-input {
-            width: 80px;
+        .score-input {
+            width: 100px;
         }
         .btn {
             padding: 12px 25px;
@@ -109,6 +109,7 @@
             font-weight: bold;
             transition: background 0.3s ease;
             margin-right: 10px;
+            margin-bottom: 10px;
         }
         .btn:hover {
             background: #2980b9;
@@ -131,6 +132,10 @@
         .btn.warning:hover {
             background: #e67e22;
         }
+        .btn.small {
+            padding: 8px 15px;
+            font-size: 14px;
+        }
         .actions {
             display: flex;
             gap: 10px;
@@ -146,6 +151,15 @@
             text-align: center;
             padding: 40px;
             color: #7f8c8d;
+        }
+        .option-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .score-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-bottom: 5px;
         }
     </style>
 </head>
@@ -180,6 +194,18 @@
                 <label for="testTime">Примерное время прохождения (минут):</label>
                 <input type="number" id="testTime" value="15" min="1" max="60">
             </div>
+            <div class="form-group">
+                <label for="testThreshold">Порог прохождения (%):</label>
+                <input type="number" id="testThreshold" value="70" min="1" max="100" step="0.1">
+            </div>
+            <div class="form-group">
+                <label for="testMethodology">Тип методики:</label>
+                <select id="testMethodology">
+                    <option value="rigidity_scale">Методика измерения ригидности</option>
+                    <option value="willpower_control">Опросник волевого самоконтроля</option>
+                    <option value="personality_16pf">16PF личностный опросник</option>
+                </select>
+            </div>
         </div>
 
         <div class="form-container">
@@ -205,14 +231,17 @@
             id: null,
             question_text: '',
             question_type: 'multiple_choice',
-            options: [
-                { text: '', weight: 1 },
-                { text: '', weight: 2 },
-                { text: '', weight: 3 },
-                { text: '', weight: 4 },
-                { text: '', weight: 5 }
-            ],
+            scale_type: 'general',
             weight: 1.0,
+            order_index: 0,
+            options: []
+        };
+
+        // Шаблон нового варианта ответа
+        const newOptionTemplate = {
+            id: null,
+            option_text: '',
+            score_value: 1,
             order_index: 0
         };
 
@@ -238,13 +267,18 @@
                 return response.json();
             })
             .then(data => {
+                console.log('Loaded test data:', data); // Для отладки
                 const test = data.test;
                 document.getElementById('testTitle').value = test.title;
                 document.getElementById('testDescription').value = test.description || '';
                 document.getElementById('testInstructions').value = test.instructions || '';
                 document.getElementById('testTime').value = test.estimated_time || 15;
+                document.getElementById('testThreshold').value = test.pass_threshold || 70;
+                document.getElementById('testMethodology').value = test.methodology_type || '';
                 
+                // Используем данные как есть от сервера
                 questions = test.questions || [];
+                console.log('Questions data:', questions); // Для отладки
                 renderQuestions();
             })
             .catch(error => {
@@ -259,6 +293,8 @@
             document.getElementById('testDescription').value = '';
             document.getElementById('testInstructions').value = '';
             document.getElementById('testTime').value = 15;
+            document.getElementById('testThreshold').value = 70;
+            document.getElementById('testMethodology').value = 'rigidity_scale';
             
             questions = [];
             addQuestion(); // Добавляем первый вопрос по умолчанию
@@ -283,27 +319,65 @@
                         <div class="form-group">
                             <label>Текст вопроса:</label>
                             <textarea oninput="updateQuestionText(${index}, this.value)" 
-                                      placeholder="Введите текст вопроса">${question.question_text}</textarea>
+                                      placeholder="Введите текст вопроса">${escapeHtml(question.question_text || '')}</textarea>
                         </div>
                         <div class="form-group">
-                            <label>Варианты ответов (вес от 1 до 5):</label>
+                            <label>Тип шкалы:</label>
+                            <input type="text" value="${escapeHtml(question.scale_type || '')}" 
+                                   oninput="updateQuestionScale(${index}, this.value)"
+                                   placeholder="Например: стрессоустойчивость">
+                        </div>
+                        <div class="form-group">
+                            <label>Варианты ответов:</label>
+                            <div class="score-label">(текст ответа - баллы за ответ)</div>
+                            <div id="options-${index}">
                 `;
 
-                question.options.forEach((option, optionIndex) => {
+                // Отображаем варианты ответов - ИСПРАВЛЕННАЯ ЧАСТЬ
+                if (question.options && question.options.length > 0) {
+                    question.options.forEach((option, optionIndex) => {
+                        // Получаем текст ответа из правильного поля
+                        const optionText = option.option_text || option.text || '';
+                        html += `
+                            <div class="option-row">
+                                <input type="text" class="option-input" 
+                                       value="${escapeHtml(optionText)}"
+                                       oninput="updateOptionText(${index}, ${optionIndex}, this.value)"
+                                       placeholder="Введите текст ответа">
+                                <input type="number" class="score-input" 
+                                       value="${option.score_value || 0}" min="0" max="100"
+                                       oninput="updateOptionScore(${index}, ${optionIndex}, this.value)"
+                                       placeholder="Баллы">
+                                <div class="option-actions">
+                                    <button class="btn small danger" onclick="removeOption(${index}, ${optionIndex})">🗑️</button>
+                                    ${optionIndex === question.options.length - 1 ? 
+                                        `<button class="btn small success" onclick="addOption(${index})">➕</button>` : 
+                                        ''}
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    // Если нет вариантов ответов, добавляем пустой вариант
                     html += `
                         <div class="option-row">
                             <input type="text" class="option-input" 
-                                   value="${option.text}"
-                                   oninput="updateOptionText(${index}, ${optionIndex}, this.value)"
-                                   placeholder="Вариант ответа ${optionIndex + 1}">
-                            <input type="number" class="weight-input" 
-                                   value="${option.weight}" min="1" max="5"
-                                   oninput="updateOptionWeight(${index}, ${optionIndex}, this.value)">
+                                   value=""
+                                   oninput="updateOptionText(${index}, 0, this.value)"
+                                   placeholder="Введите текст ответа">
+                            <input type="number" class="score-input" 
+                                   value="1" min="0" max="100"
+                                   oninput="updateOptionScore(${index}, 0, this.value)"
+                                   placeholder="Баллы">
+                            <div class="option-actions">
+                                <button class="btn small success" onclick="addOption(${index})">➕</button>
+                            </div>
                         </div>
                     `;
-                });
+                }
 
                 html += `
+                            </div>
                         </div>
                     </div>
                 `;
@@ -312,9 +386,26 @@
             container.innerHTML = html;
         }
 
+        // Функция для экранирования HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
         function addQuestion() {
             const newQuestion = JSON.parse(JSON.stringify(newQuestionTemplate));
             newQuestion.order_index = questions.length;
+            // Добавляем один пустой вариант ответа для нового вопроса
+            const newOption = JSON.parse(JSON.stringify(newOptionTemplate));
+            newOption.order_index = 0;
+            newQuestion.options.push(newOption);
             questions.push(newQuestion);
             renderQuestions();
         }
@@ -327,16 +418,44 @@
             renderQuestions();
         }
 
+        function addOption(questionIndex) {
+            const newOption = JSON.parse(JSON.stringify(newOptionTemplate));
+            newOption.order_index = questions[questionIndex].options.length;
+            questions[questionIndex].options.push(newOption);
+            renderQuestions();
+        }
+
+        function removeOption(questionIndex, optionIndex) {
+            if (questions[questionIndex].options.length <= 1) {
+                alert('Должен остаться хотя бы один вариант ответа');
+                return;
+            }
+            questions[questionIndex].options.splice(optionIndex, 1);
+            // Обновляем порядковые номера
+            questions[questionIndex].options.forEach((opt, i) => opt.order_index = i);
+            renderQuestions();
+        }
+
         function updateQuestionText(index, text) {
             questions[index].question_text = text;
         }
 
-        function updateOptionText(questionIndex, optionIndex, text) {
-            questions[questionIndex].options[optionIndex].text = text;
+        function updateQuestionScale(index, scale) {
+            questions[index].scale_type = scale;
         }
 
-        function updateOptionWeight(questionIndex, optionIndex, weight) {
-            questions[questionIndex].options[optionIndex].weight = parseFloat(weight) || 1;
+        function updateOptionText(questionIndex, optionIndex, text) {
+            if (!questions[questionIndex].options[optionIndex]) {
+                questions[questionIndex].options[optionIndex] = JSON.parse(JSON.stringify(newOptionTemplate));
+            }
+            questions[questionIndex].options[optionIndex].option_text = text;
+        }
+
+        function updateOptionScore(questionIndex, optionIndex, score) {
+            if (!questions[questionIndex].options[optionIndex]) {
+                questions[questionIndex].options[optionIndex] = JSON.parse(JSON.stringify(newOptionTemplate));
+            }
+            questions[questionIndex].options[optionIndex].score_value = parseInt(score) || 0;
         }
 
         function saveTest() {
@@ -345,12 +464,19 @@
                 description: document.getElementById('testDescription').value.trim(),
                 instructions: document.getElementById('testInstructions').value.trim(),
                 estimated_time: parseInt(document.getElementById('testTime').value) || 15,
+                pass_threshold: parseFloat(document.getElementById('testThreshold').value) || 70,
+                methodology_type: document.getElementById('testMethodology').value.trim(),
                 questions: questions
             };
 
             // Валидация
             if (!testData.title) {
                 alert('Введите название теста');
+                return;
+            }
+
+            if (!testData.methodology_type) {
+                alert('Введите тип методики');
                 return;
             }
 
@@ -367,9 +493,17 @@
                     return;
                 }
                 
+                if (!question.options || question.options.length === 0) {
+                    alert(`Добавьте хотя бы один вариант ответа в вопрос ${i + 1}`);
+                    return;
+                }
+                
                 for (let j = 0; j < question.options.length; j++) {
-                    if (!question.options[j].text.trim()) {
-                        alert(`Заполните вариант ответа ${j + 1} в вопросе ${i + 1}`);
+                    const option = question.options[j];
+                    // Используем option_text для проверки
+                    const optionText = option.option_text || option.text || '';
+                    if (!optionText.trim()) {
+                        alert(`Заполните текст варианта ответа ${j + 1} в вопросе ${i + 1}`);
                         return;
                     }
                 }
@@ -377,6 +511,8 @@
 
             const url = testId ? `/api/admin/tests/${testId}` : '/api/admin/tests';
             const method = testId ? 'PUT' : 'POST';
+
+            console.log('Saving test data:', testData); // Для отладки
 
             fetch(url, {
                 method: method,

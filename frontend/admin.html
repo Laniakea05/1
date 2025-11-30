@@ -232,8 +232,8 @@
                         <div class="stat-label">Активных сегодня</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-number" id="averageState">-</div>
-                        <div class="stat-label">Среднее состояние</div>
+                        <div class="stat-number" id="passedTests">0</div>
+                        <div class="stat-label">Успешных тестов</div>
                     </div>
                 </div>
                 <button class="btn" onclick="loadAdminStats()">🔄 Обновить статистику</button>
@@ -367,7 +367,7 @@
                 document.getElementById('totalUsers').textContent = stats.total_users;
                 document.getElementById('totalTests').textContent = stats.total_tests;
                 document.getElementById('activeToday').textContent = stats.active_today;
-                document.getElementById('averageState').textContent = stats.average_state;
+                document.getElementById('passedTests').textContent = stats.passed_tests;
             })
             .catch(error => {
                 console.error('Error loading stats:', error);

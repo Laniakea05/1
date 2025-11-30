@@ -1,3 +1,4 @@
+
 package handlers
 
 import (
@@ -14,20 +15,20 @@ import (
 
 // Функция для создания тестовых пользователей при первом запуске
 func CreateTestUsers() {
-	// Проверяем есть ли уже пользователи
+	// Проверяем есть ли уже пользователи с правильными паролями
 	var count int
-	err := database.DB.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
+	err := database.DB.QueryRow("SELECT COUNT(*) FROM users WHERE password_hash != 'temp_password'").Scan(&count)
 	if err != nil {
 		fmt.Printf("Ошибка проверки пользователей: %v\n", err)
 		return
 	}
 	
 	if count > 0 {
-		fmt.Println("✅ Пользователи уже существуют, пропускаем создание")
-		return // Пользователи уже есть
+		fmt.Println("✅ Пользователи уже существуют с правильными паролями")
+		return
 	}
 
-	fmt.Println("🔄 Создаем тестовых пользователей...")
+	fmt.Println("🔄 Создаем тестовых пользователей с правильными паролями...")
 
 	// Создаём тестовых пользователей
 	users := []struct {
@@ -49,21 +50,21 @@ func CreateTestUsers() {
 			continue
 		}
 		
-		fmt.Printf("Создаем пользователя: %s (%s)\n", u.email, u.role)
+		fmt.Printf("Обновляем пользователя: %s (%s)\n", u.email, u.role)
 		
 		_, err = database.DB.Exec(
-			"INSERT INTO users (email, password_hash, last_name, first_name, patronymic, role, is_blocked) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-			u.email, hashedPassword, u.lastName, u.firstName, u.patronymic, u.role, false,
+			"UPDATE users SET password_hash = $1 WHERE email = $2",
+			hashedPassword, u.email,
 		)
 		if err != nil {
-			fmt.Printf("❌ Ошибка создания пользователя %s: %v\n", u.email, err)
+			fmt.Printf("❌ Ошибка обновления пользователя %s: %v\n", u.email, err)
 			continue
 		}
 		
-		fmt.Printf("✅ Пользователь %s создан успешно!\n", u.email)
+		fmt.Printf("✅ Пользователь %s обновлен успешно!\n", u.email)
 	}
 	
-	fmt.Println("✅ Все тестовые пользователи созданы!")
+	fmt.Println("✅ Все тестовые пользователи обновлены с правильными паролями!")
 }
 
 // CheckEmail проверяет доступность email

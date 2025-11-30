@@ -39,49 +39,45 @@ func GetUserProfile(c *gin.Context) {
 }
 
 func GetUserStats(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Пользователь не авторизован"})
-		return
-	}
+    userID, exists := c.Get("userID")
+    if !exists {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Пользователь не авторизован"})
+        return
+    }
 
-	var stats struct {
-		TestsCompleted  int    `json:"tests_completed"`
-		LastTestDate    string `json:"last_test_date"`
-		Recommendation  string `json:"recommendation"` // Заменяем средний балл на рекомендацию
-	}
+    var stats struct {
+        TestsCompleted  int    `json:"tests_completed"`
+        LastTestDate    string `json:"last_test_date"`
+    }
 
-	// Количество пройденных тестов за последний месяц
-	err := database.DB.QueryRow(`
-		SELECT COUNT(*) FROM test_results 
-		WHERE user_id = $1 AND completed_at >= NOW() - INTERVAL '30 days'
-	`, userID).Scan(&stats.TestsCompleted)
-	if err != nil {
-		stats.TestsCompleted = 0
-	}
+    // Количество пройденных тестов за последний месяц
+    err := database.DB.QueryRow(`
+        SELECT COUNT(*) FROM test_results 
+        WHERE user_id = $1 AND completed_at >= NOW() - INTERVAL '30 days'
+    `, userID).Scan(&stats.TestsCompleted)
+    if err != nil {
+        stats.TestsCompleted = 0
+    }
 
-	// Дата последнего теста
-	var lastDate sql.NullString
-	err = database.DB.QueryRow(`
-		SELECT TO_CHAR(completed_at, 'DD.MM.YYYY')
-		FROM test_results 
-		WHERE user_id = $1 
-		ORDER BY completed_at DESC 
-		LIMIT 1
-	`, userID).Scan(&lastDate)
-	
-	if err != nil || !lastDate.Valid {
-		stats.LastTestDate = "-"
-	} else {
-		stats.LastTestDate = lastDate.String
-	}
+    // Дата последнего теста
+    var lastDate sql.NullString
+    err = database.DB.QueryRow(`
+        SELECT TO_CHAR(completed_at, 'DD.MM.YYYY')
+        FROM test_results 
+        WHERE user_id = $1 
+        ORDER BY completed_at DESC 
+        LIMIT 1
+    `, userID).Scan(&lastDate)
+    
+    if err != nil || !lastDate.Valid {
+        stats.LastTestDate = "-"
+    } else {
+        stats.LastTestDate = lastDate.String
+    }
 
-	// Получаем рекомендацию на основе среднего балла за последний месяц
-	stats.Recommendation = getMonthlyRecommendation(userID.(int))
-
-	c.JSON(http.StatusOK, gin.H{
-		"stats": stats,
-	})
+    c.JSON(http.StatusOK, gin.H{
+        "stats": stats,
+    })
 }
 
 // getMonthlyRecommendation возвращает рекомендацию на основе среднего балла за последний месяц

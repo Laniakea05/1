@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: postgres
       TZ: Europe/Moscow
     ports:
-      - "5433:5432"  # Изменяем внешний порт на 5433
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -24,6 +24,7 @@ services:
     container_name: psycho-backend
     ports:
       - "8080:8080"
+      - "8443:8443"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -31,10 +32,14 @@ services:
       DB_PASSWORD: postgres
       DB_NAME: psycho_test_system
       TZ: Europe/Moscow
+      SSL_CERT: /app/cert.crt
+      SSL_KEY: /app/cert.key
     depends_on:
       - postgres
     networks:
       - psycho-network
+    volumes:
+      - ./ssl:/app/ssl
 
 networks:
   psycho-network:

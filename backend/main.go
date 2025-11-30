@@ -1,7 +1,10 @@
+
 package main
 
 import (
+	"crypto/tls"
 	"log"
+	"net/http"
 	"psycho-test-system/database"
 	"psycho-test-system/handlers"
 	"psycho-test-system/middleware"
@@ -48,7 +51,7 @@ func main() {
 		{
 			auth.POST("/login", handlers.Login)
 			auth.POST("/register", handlers.Register)
-			auth.POST("/check-email", handlers.CheckEmail) // НОВЫЙ ЭНДПОИНТ
+			auth.POST("/check-email", handlers.CheckEmail)
 		}
 
 		tests := api.Group("/tests")
@@ -113,6 +116,37 @@ func main() {
 	router.GET("/admin", handlers.AdminPage)
 	router.GET("/admin/test-edit", handlers.TestEditPage)
 
-	log.Println("🚀 Server starting on http://localhost:8080")
-	router.Run(":8080")
+	log.Println("🚀 Server starting on http://localhost:8080 and https://localhost:8443")
+	
+	// Запуск HTTP сервера
+	go func() {
+		if err := http.ListenAndServe(":8080", router); err != nil {
+			log.Printf("HTTP server error: %v", err)
+		}
+	}()
+
+	// Запуск HTTPS сервера
+	cfg := &tls.Config{
+		MinVersion:               tls.VersionTLS12,
+		CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+		PreferServerCipherSuites: true,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+		},
+	}
+
+	srv := &http.Server{
+		Addr:         ":8443",
+		Handler:      router,
+		TLSConfig:    cfg,
+		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
+	}
+
+	// Используем самоподписанные сертификаты для разработки
+	if err := srv.ListenAndServeTLS("./ssl/cert.crt", "./ssl/cert.key"); err != nil {
+		log.Printf("HTTPS server error: %v", err)
+	}
 }
