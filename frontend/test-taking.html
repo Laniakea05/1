@@ -144,6 +144,23 @@
         .btn.submit:hover {
             background: #219a52;
         }
+        .auth-required {
+            background: #fdebd0;
+            color: #e67e22;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 50px;
+            border-left: 4px solid #e67e22;
+        }
+        .auth-required a {
+            color: #3498db;
+            font-weight: bold;
+            text-decoration: none;
+        }
+        .auth-required a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -159,33 +176,47 @@
     </div>
 
     <div class="container">
-        <div class="test-header">
-            <h1 id="testTitle">Загрузка теста...</h1>
-            <p id="testDescription"></p>
-            <div class="test-meta">
-                <span>❓ <span id="totalQuestions">0</span> вопросов</span>
-                <span>⏱️ <span id="estimatedTime">0</span> минут</span>
-                <span class="methodology-badge" id="methodologyBadge">Методика</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress" id="progress" style="width: 0%"></div>
-            </div>
-            <div>Вопрос <span id="currentQuestion">1</span> из <span id="totalQuestionsCount">0</span></div>
+        <!-- Сообщение о необходимости авторизации -->
+        <div id="authRequired" class="auth-required" style="display: none;">
+            <h2>Для прохождения теста необходимо авторизоваться</h2>
+            <p>Пожалуйста, войдите в систему или зарегистрируйтесь для доступа к тестам.</p>
+            <p>
+                <a href="/login">Войти</a> | 
+                <a href="/register">Зарегистрироваться</a> | 
+                <a href="/">На главную</a>
+            </p>
         </div>
 
-        <div id="testForm">
-            <div class="question-card">
-                <div class="question-number">Вопрос <span id="questionNumber">1</span></div>
-                <div class="question-text" id="questionText">Загрузка вопроса...</div>
-                
-                <div class="options" id="optionsContainer">
-                    <!-- Опции будут добавляться динамически -->
+        <!-- Основной контент (показывается только после авторизации) -->
+        <div id="testContent" style="display: none;">
+            <div class="test-header">
+                <h1 id="testTitle">Загрузка теста...</h1>
+                <p id="testDescription"></p>
+                <div class="test-meta">
+                    <span>❓ <span id="totalQuestions">0</span> вопросов</span>
+                    <span>⏱️ <span id="estimatedTime">0</span> минут</span>
+                    <span class="methodology-badge" id="methodologyBadge">Методика</span>
                 </div>
+                <div class="progress-bar">
+                    <div class="progress" id="progress" style="width: 0%"></div>
+                </div>
+                <div>Вопрос <span id="currentQuestion">1</span> из <span id="totalQuestionsCount">0</span></div>
+            </div>
 
-                <div class="navigation">
-                    <button type="button" class="btn" id="prevBtn" onclick="previousQuestion()" disabled>← Назад</button>
-                    <button type="button" class="btn" id="nextBtn" onclick="nextQuestion()">Далее →</button>
-                    <button type="button" class="btn submit" id="submitBtn" onclick="submitTest()" style="display: none;">Завершить тест</button>
+            <div id="testForm">
+                <div class="question-card">
+                    <div class="question-number">Вопрос <span id="questionNumber">1</span></div>
+                    <div class="question-text" id="questionText">Загрузка вопроса...</div>
+                    
+                    <div class="options" id="optionsContainer">
+                        <!-- Опции будут добавляться динамически -->
+                    </div>
+
+                    <div class="navigation">
+                        <button type="button" class="btn" id="prevBtn" onclick="previousQuestion()" disabled>← Назад</button>
+                        <button type="button" class="btn" id="nextBtn" onclick="nextQuestion()">Далее →</button>
+                        <button type="button" class="btn submit" id="submitBtn" onclick="submitTest()" style="display: none;">Завершить тест</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -195,6 +226,33 @@
         let currentQuestionIndex = 0;
         let answers = {};
         let testData = {};
+
+        // Проверяем авторизацию при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+            if (!token || !user.email) {
+                // Показываем сообщение о необходимости авторизации
+                document.getElementById('authRequired').style.display = 'block';
+                return;
+            }
+
+            // Если авторизован, показываем контент
+            document.getElementById('testContent').style.display = 'block';
+
+            // Получаем ID теста из URL
+            const pathParts = window.location.pathname.split('/');
+            const testId = pathParts[pathParts.length - 1];
+            
+            if (!testId || isNaN(testId)) {
+                alert('Неверный идентификатор теста');
+                window.location.href = '/tests';
+                return;
+            }
+
+            loadTestData(testId);
+        });
 
         function loadQuestion(index) {
             if (!testData.questions || index >= testData.questions.length) {
@@ -287,10 +345,6 @@
             .then(data => {
                 if (data.result && data.result.interpretation) {
                     // Перенаправляем на страницу результатов с параметрами
-                    const interpretation = encodeURIComponent(data.result.interpretation);
-                    const recommendation = encodeURIComponent(data.result.recommendation);
-                    const isPassed = data.result.is_passed;
-                    
                     window.location.href = `/test-result?interpretation=${encodeURIComponent(data.result.interpretation)}&passed=${data.result.is_passed}&title=${encodeURIComponent(data.result.test_title)}`;
                 } else {
                     throw new Error('Неверный формат ответа от сервера');
@@ -357,28 +411,11 @@
             });
         }
 
-        // Инициализация
-        document.addEventListener('DOMContentLoaded', function() {
-            // Проверяем авторизацию
-            const token = localStorage.getItem('token');
-            if (!token) {
-                alert('Для прохождения теста необходимо авторизоваться');
-                window.location.href = '/login';
-                return;
-            }
-
-            // Получаем ID теста из URL
-            const pathParts = window.location.pathname.split('/');
-            const testId = pathParts[pathParts.length - 1];
-            
-            if (!testId || isNaN(testId)) {
-                alert('Неверный идентификатор теста');
-                window.location.href = '/tests';
-                return;
-            }
-
-            loadTestData(testId);
-        });
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+        }
     </script>
 </body>
 </html>

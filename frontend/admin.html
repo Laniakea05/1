@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -189,6 +190,35 @@
         .blocked-user:hover {
             background-color: #ffeaea;
         }
+        .access-denied {
+            text-align: center;
+            padding: 50px;
+            color: #e74c3c;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-top: 50px;
+        }
+        .access-denied h2 {
+            margin-bottom: 20px;
+        }
+        .access-denied a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .access-denied a:hover {
+            text-decoration: underline;
+        }
+        .admin-status {
+            background: #d5f4e6;
+            color: #27ae60;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #27ae60;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -207,7 +237,26 @@
     </div>
 
     <div class="container">
-        <div class="admin-panel">
+        <!-- Сообщение о недостаточных правах -->
+        <div id="accessDenied" class="access-denied" style="display: none;">
+            <h2>⛔ Доступ запрещен</h2>
+            <p>Для доступа к панели администратора требуются соответствующие права.</p>
+            <p>Возможно, вы не вошли в систему или у вас недостаточно прав.</p>
+            <p>
+                <a href="/login">Войти как администратор</a> | 
+                <a href="/dashboard">Перейти в личный кабинет</a> | 
+                <a href="/">На главную</a>
+            </p>
+        </div>
+
+        <!-- Статус системы (только для администратора) -->
+        <div id="adminStatus" class="admin-status">
+            <strong>Статус системы:</strong> 
+            <span id="systemStatus">Проверка...</span>
+        </div>
+
+        <!-- Основной контент администратора -->
+        <div id="adminContent" class="admin-panel" style="display: none;">
             <div class="tabs">
                 <div class="tab active" onclick="switchTab('dashboard')">📊 Статистика</div>
                 <div class="tab" onclick="switchTab('users')">👥 Пользователи</div>
@@ -306,20 +355,92 @@
     </div>
 
     <script>
-        // Проверяем авторизацию и права
-        const token = localStorage.getItem('token');
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        // Проверяем авторизацию и права при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
 
-        if (!token) {
-            window.location.href = '/login';
+            // Если нет токена или данных пользователя, показываем ошибку
+            if (!token || !user.id || !user.email) {
+                showAccessDenied();
+                return;
+            }
+
+            // Проверяем токен на сервере
+            verifyToken(token).then(isValid => {
+                if (isValid && user.role === 'admin') {
+                    // Токен валиден и пользователь админ
+                    showAdminContent(user);
+                    loadSystemStatus();
+                } else {
+                    // Не админ или токен невалиден
+                    showAccessDenied();
+                }
+            }).catch(error => {
+                console.error('Token verification error:', error);
+                showAccessDenied();
+            });
+        });
+
+        function showAccessDenied() {
+            // Очищаем старые данные
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            document.getElementById('accessDenied').style.display = 'block';
+            document.getElementById('adminContent').style.display = 'none';
+            document.getElementById('adminStatus').style.display = 'none';
         }
 
-        if (user.role !== 'admin') {
-            alert('Доступ запрещен. Требуются права администратора.');
-            window.location.href = '/dashboard';
+        function showAdminContent(user) {
+            document.getElementById('accessDenied').style.display = 'none';
+            document.getElementById('adminContent').style.display = 'block';
+            document.getElementById('adminName').textContent = user.full_name || 'Администратор';
+            
+            // Инициализируем данные
+            loadAdminStats();
         }
 
-        document.getElementById('adminName').textContent = user.full_name || 'Администратор';
+        // Функция проверки токена на сервере
+        function verifyToken(token) {
+            return fetch('/api/user/profile', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                return response.ok;
+            })
+            .catch(error => {
+                console.error('Error verifying token:', error);
+                return false;
+            });
+        }
+
+        // Загрузка статуса системы
+        function loadSystemStatus() {
+            const token = localStorage.getItem('token');
+            
+            fetch('/api/health', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Ошибка проверки статуса');
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('adminStatus').style.display = 'block';
+                document.getElementById('systemStatus').innerHTML = 
+                    `✅ Сервер работает | 📊 Статус: ${data.status} | 🗄️ База данных: ${data.database || 'connected'}`;
+            })
+            .catch(error => {
+                console.error('Error loading system status:', error);
+                document.getElementById('adminStatus').style.display = 'none';
+            });
+        }
 
         function switchTab(tabName) {
             // Скрываем все вкладки
@@ -353,6 +474,8 @@
 
         // Загрузка статистики
         function loadAdminStats() {
+            const token = localStorage.getItem('token');
+            
             fetch('/api/admin/stats', {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -377,6 +500,8 @@
 
         // Загрузка пользователей
         function loadUsers() {
+            const token = localStorage.getItem('token');
+            
             document.getElementById('usersLoading').style.display = 'block';
             document.getElementById('usersTable').style.display = 'none';
 
@@ -428,8 +553,9 @@
             });
         }
 
-        // Блокировка/разблокировка пользователя - ИСПРАВЛЕННАЯ ВЕРСИЯ
+        // Блокировка/разблокировка пользователя
         function toggleBlockUser(userId, isCurrentlyBlocked) {
+            const token = localStorage.getItem('token');
             const action = isCurrentlyBlocked ? 'разблокировать' : 'заблокировать';
             if (!confirm(`Вы уверены, что хотите ${action} этого пользователя?`)) {
                 return;
@@ -463,6 +589,8 @@
 
         // Загрузка тестов
         function loadTests() {
+            const token = localStorage.getItem('token');
+            
             document.getElementById('testsLoading').style.display = 'block';
             document.getElementById('testsTable').style.display = 'none';
 
@@ -507,6 +635,8 @@
 
         // Удаление теста
         function deleteTest(testId) {
+            const token = localStorage.getItem('token');
+            
             if (!confirm('Вы уверены, что хотите удалить этот тест? Все результаты также будут удалены.')) {
                 return;
             }
@@ -543,6 +673,8 @@
 
         // Загрузка результатов
         function loadResults() {
+            const token = localStorage.getItem('token');
+            
             document.getElementById('resultsLoading').style.display = 'block';
             document.getElementById('resultsTable').style.display = 'none';
 
@@ -625,13 +757,8 @@
         function logout() {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            window.location.href = '/login';
+            window.location.href = '/';
         }
-
-        // Инициализация
-        document.addEventListener('DOMContentLoaded', function() {
-            loadAdminStats();
-        });
     </script>
 </body>
 </html>

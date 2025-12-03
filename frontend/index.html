@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -65,17 +66,8 @@
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
         }
-        .nav a.admin {
-            background: #e74c3c;
-            display: none;
-        }
-        .status {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            margin: 30px 0;
-            text-align: center;
-            display: none;
+        .nav a.admin-link {
+            background: #f39c12;
         }
         .features {
             display: grid;
@@ -124,6 +116,12 @@
         .nav-icon {
             font-size: 1.2em;
         }
+        .logout-btn {
+            background: #95a5a6 !important;
+        }
+        .logout-btn:hover {
+            background: #7f8c8d !important;
+        }
     </style>
 </head>
 <body>
@@ -132,32 +130,9 @@
             <div class="system-title">Система оценки психологического состояния</div>
         </div>
 
-        <div class="nav">
-            <a href="/login">
-                <span class="nav-icon">🔑</span>
-                Вход в систему
-            </a>
-            <a href="/register">
-                <span class="nav-icon">📝</span>
-                Регистрация
-            </a>
-            <a href="/tests">
-                <span class="nav-icon">🧪</span>
-                Пройти тесты
-            </a>
-            <a href="/dashboard">
-                <span class="nav-icon">👤</span>
-                Личный кабинет
-            </a>
-            <a href="/admin" class="admin">
-                <span class="nav-icon">⚙️</span>
-                Панель администратора
-            </a>
-        </div>
-
-        <div class="status" id="statusSection">
-            <h3>Статус системы</h3>
-            <div id="status">Проверка подключения...</div>
+        <!-- Навигация (динамически обновляется) -->
+        <div class="nav" id="mainNav">
+            <!-- Ссылки будут добавляться динамически -->
         </div>
 
         <div class="features">
@@ -174,32 +149,83 @@
     </div>
 
     <script>
-        function checkAuthStatus() {
+        // При загрузке страницы проверяем авторизацию
+        document.addEventListener('DOMContentLoaded', function() {
             const token = localStorage.getItem('token');
             const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+            updateNavigation(token, user);
+        });
+
+        function updateNavigation(token, user) {
+            const mainNav = document.getElementById('mainNav');
             
-            if (token && user.role === 'admin') {
-                document.querySelector('.nav a.admin').style.display = 'flex';
-                document.getElementById('statusSection').style.display = 'block';
-                
-                fetch('/api/health')
-                    .then(response => response.json())
-                    .then(data => {
-                        document.getElementById('status').innerHTML = 
-                            `✅ <strong>Сервер работает</strong><br>
-                             📊 Статус: ${data.status}<br>
-                             🗄️ База данных: ${data.database || 'connected'}`;
-                    })
-                    .catch(error => {
-                        document.getElementById('status').innerHTML = 
-                            '❌ <strong>Ошибка подключения к серверу</strong>';
-                    });
+            if (!token || !user.email) {
+                // Пользователь не авторизован
+                showUnauthenticatedNav(mainNav);
+            } else {
+                // Пользователь авторизован
+                showAuthenticatedNav(mainNav, user);
             }
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            checkAuthStatus();
-        });
+        function showUnauthenticatedNav(navElement) {
+            // Для неавторизованных пользователей
+            navElement.innerHTML = `
+                <a href="/login">
+                    <span class="nav-icon">🔑</span>
+                    Вход в систему
+                </a>
+                <a href="/register">
+                    <span class="nav-icon">📝</span>
+                    Регистрация
+                </a>
+                <a href="/tests">
+                    <span class="nav-icon">🧪</span>
+                    Пройти тесты
+                </a>
+            `;
+        }
+
+        function showAuthenticatedNav(navElement, user) {
+            // Для авторизованных пользователей
+            let navHtml = `
+                <a href="/tests">
+                    <span class="nav-icon">🧪</span>
+                    Пройти тесты
+                </a>
+                <a href="/dashboard">
+                    <span class="nav-icon">👤</span>
+                    Личный кабинет
+                </a>
+            `;
+
+            // Если пользователь администратор - добавляем ссылку на админ-панель
+            if (user.role === 'admin') {
+                navHtml += `
+                    <a href="/admin" class="admin-link">
+                        <span class="nav-icon">⚙️</span>
+                        Панель администратора
+                    </a>
+                `;
+            }
+
+            // Кнопка выхода
+            navHtml += `
+                <a href="#" onclick="logout()" class="logout-btn">
+                    <span class="nav-icon">🚪</span>
+                    Выйти
+                </a>
+            `;
+
+            navElement.innerHTML = navHtml;
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+        }
     </script>
 </body>
 </html>

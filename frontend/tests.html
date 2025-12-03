@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -128,6 +129,22 @@
             background: white;
             border-radius: 10px;
         }
+        .auth-error {
+            text-align: center;
+            padding: 50px;
+            color: #e74c3c;
+            background: white;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        .auth-error a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .auth-error a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -136,7 +153,7 @@
             <div class="nav">
                 <h1>🧪 Психологические тесты</h1>
                 <div class="nav-links">
-                    <a href="/dashboard">👤 Кабинет</a>
+                    <a href="/dashboard" id="dashboardLink">👤 Кабинет</a>
                     <a href="/">🏠 Главная</a>
                 </div>
             </div>
@@ -149,12 +166,90 @@
             <p>Выберите тест для прохождения. Каждый тест поможет оценить важные психологические качества.</p>
         </div>
 
-        <div id="testsContainer">
-            <div class="loading">Загрузка тестов...</div>
+        <!-- Сообщение об ошибке авторизации -->
+        <div id="authError" class="auth-error" style="display: none;">
+            <h2>⚠️ Требуется авторизация</h2>
+            <p>Для просмотра и прохождения тестов необходимо войти в систему.</p>
+            <p>
+                <a href="/login">Войти</a> | 
+                <a href="/register">Зарегистрироваться</a>
+            </p>
+        </div>
+
+        <!-- Основной контент тестов -->
+        <div id="testsContent" style="display: none;">
+            <div id="testsContainer">
+                <div class="loading">Загрузка тестов...</div>
+            </div>
         </div>
     </div>
 
     <script>
+        // Проверяем авторизацию при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+            // Если нет токена или данных пользователя, показываем ошибку
+            if (!token || !user.id || !user.email) {
+                showAuthError();
+                return;
+            }
+
+            // Проверяем токен на сервере
+            verifyToken(token).then(isValid => {
+                if (isValid) {
+                    // Токен валиден, показываем тесты
+                    showTestsContent();
+                    loadTests();
+                } else {
+                    // Токен невалиден, показываем ошибку
+                    showAuthError();
+                }
+            }).catch(error => {
+                console.error('Token verification error:', error);
+                showAuthError();
+            });
+        });
+
+        function showAuthError() {
+            // Очищаем старые данные
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            // Скрываем ссылку на кабинет
+            document.getElementById('dashboardLink').style.display = 'none';
+            
+            // Показываем сообщение об ошибке
+            document.getElementById('authError').style.display = 'block';
+            document.getElementById('testsContent').style.display = 'none';
+        }
+
+        function showTestsContent() {
+            // Скрываем сообщение об ошибке
+            document.getElementById('authError').style.display = 'none';
+            
+            // Показываем контент тестов
+            document.getElementById('testsContent').style.display = 'block';
+        }
+
+        // Функция проверки токена на сервере
+        function verifyToken(token) {
+            return fetch('/api/user/profile', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                return response.ok;
+            })
+            .catch(error => {
+                console.error('Error verifying token:', error);
+                return false;
+            });
+        }
+
         function startTest(testId) {
             // Проверяем авторизацию
             const token = localStorage.getItem('token');
@@ -228,10 +323,11 @@
             testsContainer.innerHTML = testsHtml;
         }
 
-        // Инициализация
-        document.addEventListener('DOMContentLoaded', function() {
-            loadTests();
-        });
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+        }
     </script>
 </body>
 </html>

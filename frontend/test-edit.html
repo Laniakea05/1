@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -161,6 +162,26 @@
             color: #7f8c8d;
             margin-bottom: 5px;
         }
+        .access-denied {
+            text-align: center;
+            padding: 50px;
+            color: #e74c3c;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-top: 50px;
+        }
+        .access-denied h2 {
+            margin-bottom: 20px;
+        }
+        .access-denied a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .access-denied a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -176,49 +197,64 @@
     </div>
 
     <div class="container">
-        <div class="form-container">
-            <h2 class="section-title">Основная информация</h2>
-            <div class="form-group">
-                <label for="testTitle">Название теста:</label>
-                <input type="text" id="testTitle" placeholder="Введите название теста">
-            </div>
-            <div class="form-group">
-                <label for="testDescription">Описание теста:</label>
-                <textarea id="testDescription" placeholder="Введите описание теста"></textarea>
-            </div>
-            <div class="form-group">
-                <label for="testInstructions">Инструкции:</label>
-                <textarea id="testInstructions" placeholder="Введите инструкции для прохождения теста"></textarea>
-            </div>
-            <div class="form-group">
-                <label for="testTime">Примерное время прохождения (минут):</label>
-                <input type="number" id="testTime" value="15" min="1" max="60">
-            </div>
-            <div class="form-group">
-                <label for="testThreshold">Порог прохождения (%):</label>
-                <input type="number" id="testThreshold" value="70" min="1" max="100" step="0.1">
-            </div>
-            <div class="form-group">
-                <label for="testMethodology">Тип методики:</label>
-                <select id="testMethodology">
-                    <option value="rigidity_scale">Методика измерения ригидности</option>
-                    <option value="willpower_control">Опросник волевого самоконтроля</option>
-                    <option value="personality_16pf">16PF личностный опросник</option>
-                </select>
-            </div>
+        <!-- Сообщение о недостаточных правах -->
+        <div id="accessDenied" class="access-denied" style="display: none;">
+            <h2>⛔ Доступ запрещен</h2>
+            <p>Для редактирования тестов требуются права администратора.</p>
+            <p>Возможно, вы не вошли в систему или у вас недостаточно прав.</p>
+            <p>
+                <a href="/login">Войти как администратор</a> | 
+                <a href="/dashboard">Перейти в личный кабинет</a> | 
+                <a href="/">На главную</a>
+            </p>
         </div>
 
-        <div class="form-container">
-            <h2 class="section-title">Вопросы теста</h2>
-            <div id="questionsContainer">
-                <div class="loading">Загрузка вопросов...</div>
+        <!-- Основной контент редактирования -->
+        <div id="editContent" style="display: none;">
+            <div class="form-container">
+                <h2 class="section-title">Основная информация</h2>
+                <div class="form-group">
+                    <label for="testTitle">Название теста:</label>
+                    <input type="text" id="testTitle" placeholder="Введите название теста">
+                </div>
+                <div class="form-group">
+                    <label for="testDescription">Описание теста:</label>
+                    <textarea id="testDescription" placeholder="Введите описание теста"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="testInstructions">Инструкции:</label>
+                    <textarea id="testInstructions" placeholder="Введите инструкции для прохождения теста"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="testTime">Примерное время прохождения (минут):</label>
+                    <input type="number" id="testTime" value="15" min="1" max="60">
+                </div>
+                <div class="form-group">
+                    <label for="testThreshold">Порог прохождения (%):</label>
+                    <input type="number" id="testThreshold" value="70" min="1" max="100" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label for="testMethodology">Тип методики:</label>
+                    <select id="testMethodology">
+                        <option value="rigidity_scale">Методика измерения ригидности</option>
+                        <option value="willpower_control">Опросник волевого самоконтроля</option>
+                        <option value="personality_16pf">16PF личностный опросник</option>
+                    </select>
+                </div>
             </div>
-            <button class="btn success" onclick="addQuestion()">➕ Добавить вопрос</button>
-        </div>
 
-        <div class="actions">
-            <button class="btn success" onclick="saveTest()">💾 Сохранить тест</button>
-            <button class="btn danger" onclick="cancelEdit()">❌ Отмена</button>
+            <div class="form-container">
+                <h2 class="section-title">Вопросы теста</h2>
+                <div id="questionsContainer">
+                    <div class="loading">Загрузка вопросов...</div>
+                </div>
+                <button class="btn success" onclick="addQuestion()">➕ Добавить вопрос</button>
+            </div>
+
+            <div class="actions">
+                <button class="btn success" onclick="saveTest()">💾 Сохранить тест</button>
+                <button class="btn danger" onclick="cancelEdit()">❌ Отмена</button>
+            </div>
         </div>
     </div>
 
@@ -245,8 +281,36 @@
             order_index: 0
         };
 
+        // Проверяем авторизацию при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+            if (!token || !user.email) {
+                // Не авторизован
+                showAccessDenied();
+                return;
+            }
+
+            if (user.role !== 'admin') {
+                // Авторизован, но не админ
+                showAccessDenied();
+                return;
+            }
+
+            // Всё в порядке, показываем контент редактирования
+            document.getElementById('editContent').style.display = 'block';
+            loadTestData();
+        });
+
+        function showAccessDenied() {
+            document.getElementById('accessDenied').style.display = 'block';
+            document.getElementById('editContent').style.display = 'none';
+        }
+
         // Загрузка данных теста
         function loadTestData() {
+            const token = localStorage.getItem('token');
             const urlParams = new URLSearchParams(window.location.search);
             testId = urlParams.get('id');
 
@@ -259,7 +323,7 @@
             // Загрузка существующего теста
             fetch(`/api/admin/tests/${testId}/edit`, {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${token}`
                 }
             })
             .then(response => {
@@ -459,6 +523,8 @@
         }
 
         function saveTest() {
+            const token = localStorage.getItem('token');
+            
             const testData = {
                 title: document.getElementById('testTitle').value.trim(),
                 description: document.getElementById('testDescription').value.trim(),
@@ -518,7 +584,7 @@
                 method: method,
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify(testData)
             })
@@ -542,20 +608,11 @@
             }
         }
 
-        // Инициализация
-        document.addEventListener('DOMContentLoaded', function() {
-            // Проверяем авторизацию
-            const token = localStorage.getItem('token');
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-
-            if (!token || user.role !== 'admin') {
-                alert('Доступ запрещен');
-                window.location.href = '/login';
-                return;
-            }
-
-            loadTestData();
-        });
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+        }
     </script>
 </body>
 </html>

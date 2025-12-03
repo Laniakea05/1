@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -131,6 +132,12 @@
     </div>
 
     <script>
+        // Очищаем старые данные при загрузке страницы входа
+        document.addEventListener('DOMContentLoaded', function() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+        });
+
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
@@ -153,10 +160,20 @@
             .then(response => response.json())
             .then(data => {
                 if (data.token) {
+                    // Сохраняем токен и данные пользователя
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
+                    
                     messageDiv.innerHTML = '<p style="color: #27ae60;">✅ Вход успешен! Перенаправление...</p>';
-                    setTimeout(() => window.location.href = '/dashboard', 1500);
+                    
+                    // Перенаправляем в зависимости от роли пользователя
+                    setTimeout(() => {
+                        if (data.user.role === 'admin') {
+                            window.location.href = '/admin';
+                        } else {
+                            window.location.href = '/dashboard';
+                        }
+                    }, 1500);
                 } else {
                     messageDiv.innerHTML = `<p style="color: #e74c3c;">❌ ${data.error || 'Ошибка входа'}</p>`;
                 }
@@ -164,17 +181,6 @@
             .catch(error => {
                 messageDiv.innerHTML = '<p style="color: #e74c3c;">❌ Ошибка сети или сервера</p>';
             });
-        });
-
-        document.addEventListener('DOMContentLoaded', function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('test') === 'admin') {
-                document.querySelector('input[name="email"]').value = 'admin@psycho.test';
-                document.querySelector('input[name="password"]').value = 'admin123';
-            } else if (urlParams.get('test') === 'user') {
-                document.querySelector('input[name="email"]').value = 'user@test.ru';
-                document.querySelector('input[name="password"]').value = 'user123';
-            }
         });
     </script>
 </body>

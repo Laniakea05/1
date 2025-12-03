@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -190,6 +191,13 @@
     </div>
 
     <script>
+        // Очищаем старые данные при загрузке страницы регистрации
+        document.addEventListener('DOMContentLoaded', function() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            document.getElementById('submitBtn').disabled = true;
+        });
+
         let emailCheckTimeout = null;
         let isEmailAvailable = false;
 
@@ -336,10 +344,16 @@
             .then(response => response.json())
             .then(data => {
                 if (data.token) {
+                    // Сохраняем токен и данные пользователя
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
+                    
                     messageDiv.innerHTML = '<p style="color: #27ae60;">✅ Регистрация успешна! Перенаправление...</p>';
-                    setTimeout(() => window.location.href = '/dashboard', 1500);
+                    
+                    // Перенаправляем в личный кабинет
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1500);
                 } else {
                     messageDiv.innerHTML = `<p style="color: #e74c3c;">❌ ${data.error || 'Ошибка регистрации'}</p>`;
                     submitBtn.disabled = false;
@@ -349,11 +363,6 @@
                 messageDiv.innerHTML = '<p style="color: #e74c3c;">❌ Ошибка сети или сервера</p>';
                 submitBtn.disabled = false;
             });
-        });
-
-        // Инициализация - блокируем кнопку при загрузке
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('submitBtn').disabled = true;
         });
     </script>
 </body>

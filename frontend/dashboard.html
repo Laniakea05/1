@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -126,6 +127,19 @@
             margin: 10px 0;
             text-align: center;
         }
+        .auth-error {
+            text-align: center;
+            padding: 50px;
+            color: #e74c3c;
+        }
+        .auth-error a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .auth-error a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -145,58 +159,122 @@
     </div>
 
     <div class="container">
-        <div class="user-info">
-            <h2>Добро пожаловать, <span id="userName"></span>!</h2>
-            <div class="user-details">
-                <p><strong>ФИО:</strong> <span id="userFullName"></span></p>
-                <p><strong>Email:</strong> <span id="userEmailDetails"></span></p>
-                <p><strong>Роль:</strong> <span id="userRole"></span></p>
-            </div>
+        <!-- Сообщение об ошибке авторизации -->
+        <div id="authError" class="auth-error" style="display: none;">
+            <h2>⚠️ Ошибка авторизации</h2>
+            <p>Для доступа к личному кабинету необходимо авторизоваться.</p>
+            <p>
+                <a href="/login">Войти</a> | 
+                <a href="/register">Зарегистрироваться</a>
+            </p>
         </div>
 
-        <div class="stats">
-            <div class="stat-card">
-                <h3>Пройдено тестов</h3>
-                <div class="stat-number" id="testsCompleted">0</div>
-                <div class="loading" id="testsLoading">Загрузка...</div>
+        <!-- Основной контент (показывается только после успешной авторизации) -->
+        <div id="dashboardContent" style="display: none;">
+            <div class="user-info">
+                <h2>Добро пожаловать, <span id="userName"></span>!</h2>
+                <div class="user-details">
+                    <p><strong>ФИО:</strong> <span id="userFullName"></span></p>
+                    <p><strong>Email:</strong> <span id="userEmailDetails"></span></p>
+                    <p><strong>Роль:</strong> <span id="userRole"></span></p>
+                </div>
             </div>
-            <div class="stat-card">
-                <h3>Последний тест</h3>
-                <div id="lastTestDate">-</div>
-                <div class="loading" id="dateLoading">Загрузка...</div>
-            </div>
-        </div>
 
-        <div class="recent-tests">
-            <h2>Последние тесты</h2>
-            <div id="recentTests">
-                <div class="loading">Загрузка результатов тестов...</div>
+            <div class="stats">
+                <div class="stat-card">
+                    <h3>Пройдено тестов</h3>
+                    <div class="stat-number" id="testsCompleted">0</div>
+                    <div class="loading" id="testsLoading">Загрузка...</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Последний тест</h3>
+                    <div id="lastTestDate">-</div>
+                    <div class="loading" id="dateLoading">Загрузка...</div>
+                </div>
+            </div>
+
+            <div class="recent-tests">
+                <h2>Последние тесты</h2>
+                <div id="recentTests">
+                    <div class="loading">Загрузка результатов тестов...</div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Проверяем авторизацию
-        const token = localStorage.getItem('token');
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        // Проверяем авторизацию при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('token');
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
 
-        if (!token) {
-            window.location.href = '/login';
+            // Если нет токена или данных пользователя, показываем ошибку
+            if (!token || !user.id || !user.email) {
+                showAuthError();
+                return;
+            }
+
+            // Проверяем токен на сервере
+            verifyToken(token).then(isValid => {
+                if (isValid) {
+                    // Токен валиден, показываем контент
+                    showDashboardContent(user);
+                } else {
+                    // Токен невалиден, показываем ошибку
+                    showAuthError();
+                }
+            }).catch(error => {
+                console.error('Token verification error:', error);
+                showAuthError();
+            });
+        });
+
+        function showAuthError() {
+            // Очищаем старые данные
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            // Показываем сообщение об ошибке
+            document.getElementById('authError').style.display = 'block';
+            document.getElementById('dashboardContent').style.display = 'none';
         }
 
-        // Заполняем информацию о пользователе
-        document.getElementById('userName').textContent = user.first_name || 'Пользователь';
-        document.getElementById('userFullName').textContent = 
-            (user.last_name || '') + ' ' + (user.first_name || '') + ' ' + (user.patronymic || '');
-        document.getElementById('userEmail').textContent = user.email || '';
-        document.getElementById('userEmailDetails').textContent = user.email || '';
-        document.getElementById('userRole').textContent = user.role === 'admin' ? 'Администратор' : 'Пользователь';
+        function showDashboardContent(user) {
+            // Скрываем сообщение об ошибке
+            document.getElementById('authError').style.display = 'none';
+            
+            // Показываем контент
+            document.getElementById('dashboardContent').style.display = 'block';
+            document.getElementById('userName').textContent = user.first_name || 'Пользователь';
+            document.getElementById('userFullName').textContent = 
+                (user.last_name || '') + ' ' + (user.first_name || '') + ' ' + (user.patronymic || '');
+            document.getElementById('userEmail').textContent = user.email || '';
+            document.getElementById('userEmailDetails').textContent = user.email || '';
+            document.getElementById('userRole').textContent = user.role === 'admin' ? 'Администратор' : 'Пользователь';
 
-        // Проверяем права администратора
-        function checkAdminAccess() {
+            // Проверяем права администратора
             if (user.role === 'admin') {
                 document.getElementById('adminPanelLink').style.display = 'inline-block';
             }
+
+            loadUserStats();
+        }
+
+        // Функция проверки токена на сервере
+        function verifyToken(token) {
+            return fetch('/api/user/profile', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                return response.ok;
+            })
+            .catch(error => {
+                console.error('Error verifying token:', error);
+                return false;
+            });
         }
 
         // Загружаем реальную статистику
@@ -263,14 +341,8 @@
         function logout() {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            window.location.href = '/login';
+            window.location.href = '/';
         }
-
-        // Инициализация
-        document.addEventListener('DOMContentLoaded', function() {
-            loadUserStats();
-            checkAdminAccess(); // Проверяем права администратора
-        });
     </script>
 </body>
 </html>
