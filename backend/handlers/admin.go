@@ -281,7 +281,7 @@ func getMethodologyLabel(methodology string) string {
 	return methodology
 }
 
-// Удаление теста
+// Удаление теста - ИСПРАВЛЕННАЯ ВЕРСИЯ (сохраняет результаты)
 func DeleteTest(c *gin.Context) {
 	testID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -289,53 +289,142 @@ func DeleteTest(c *gin.Context) {
 		return
 	}
 
-	// Удаляем в правильном порядке (с учетом внешних ключей)
-	_, err = database.DB.Exec("DELETE FROM user_answers WHERE result_id IN (SELECT id FROM test_results WHERE test_id = $1)", testID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка удаления ответов пользователей"})
+	// Проверяем существование теста
+	var exists bool
+	err = database.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM psychological_tests WHERE id = $1)", testID).Scan(&exists)
+	if err != nil || !exists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Тест не найден"})
 		return
 	}
 
-	_, err = database.DB.Exec("DELETE FROM test_results WHERE test_id = $1", testID)
+	// Начинаем транзакцию
+	tx, err := database.DB.Begin()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка удаления результатов теста"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка начала транзакции"})
+		return
+	}
+	defer tx.Rollback()
+
+	// 1. Устанавливаем test_id = NULL в таблице test_results вместо удаления
+	_, err = tx.Exec(`
+		UPDATE test_results 
+		SET test_id = NULL 
+		WHERE test_id = $1
+	`, testID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка обновления результатов теста: " + err.Error()})
 		return
 	}
 
-	_, err = database.DB.Exec("DELETE FROM question_options WHERE question_id IN (SELECT id FROM test_questions WHERE test_id = $1)", testID)
+	// 2. Получаем ID всех вопросов этого теста
+	rows, err := tx.Query("SELECT id FROM test_questions WHERE test_id = $1", testID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка удаления вариантов ответов"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка получения вопросов теста: " + err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	var questionIDs []int
+	for rows.Next() {
+		var questionID int
+		if err := rows.Scan(&questionID); err == nil {
+			questionIDs = append(questionIDs, questionID)
+		}
+	}
+
+	// 3. Для каждого вопроса устанавливаем option_id = NULL в user_answers
+	// Это нужно чтобы обойти ограничение внешнего ключа
+	for _, questionID := range questionIDs {
+		// Получаем ID всех вариантов ответов для этого вопроса
+		optionRows, err := tx.Query("SELECT id FROM question_options WHERE question_id = $1", questionID)
+		if err != nil {
+			continue
+		}
+		
+		var optionIDs []int
+		for optionRows.Next() {
+			var optionID int
+			if err := optionRows.Scan(&optionID); err == nil {
+				optionIDs = append(optionIDs, optionID)
+			}
+		}
+		optionRows.Close()
+		
+		// Устанавливаем option_id = NULL для всех ответов пользователей
+		for _, optionID := range optionIDs {
+			_, err = tx.Exec(`
+				UPDATE user_answers 
+				SET option_id = NULL 
+				WHERE question_id = $1 AND option_id = $2
+			`, questionID, optionID)
+			if err != nil {
+				// Игнорируем ошибки если записей нет
+				continue
+			}
+		}
+	}
+
+	// 4. Теперь можем безопасно удалить варианты ответов
+	_, err = tx.Exec(`
+		DELETE FROM question_options 
+		WHERE question_id IN (SELECT id FROM test_questions WHERE test_id = $1)
+	`, testID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка удаления вариантов ответов: " + err.Error()})
 		return
 	}
 
-	_, err = database.DB.Exec("DELETE FROM test_questions WHERE test_id = $1", testID)
+	// 5. Удаляем вопросы теста
+	_, err = tx.Exec("DELETE FROM test_questions WHERE test_id = $1", testID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка удаления вопросов теста"})
 		return
 	}
 
-	_, err = database.DB.Exec("DELETE FROM psychological_tests WHERE id = $1", testID)
+	// 6. Удаляем сам тест
+	_, err = tx.Exec("DELETE FROM psychological_tests WHERE id = $1", testID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка удаления теста"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Тест удален"})
+	// Коммитим транзакцию
+	err = tx.Commit()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка завершения операции"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Тест удален",
+		"note": "Результаты тестирования сохранены в истории",
+	})
 }
 
-// Получение всех результатов тестирования
+// Получение всех результатов тестирования - ИСПРАВЛЕННАЯ ВЕРСИЯ (работает с удаленными тестами)
 func GetAllResults(c *gin.Context) {
 	rows, err := database.DB.Query(`
-		SELECT tr.id, u.last_name, u.first_name, u.patronymic, u.email, pt.title, pt.methodology_type,
-		       tr.total_score, tr.max_possible_score, tr.percentage, tr.is_passed, tr.interpretation,
-		       TO_CHAR(tr.completed_at AT TIME ZONE 'Europe/Moscow', 'YYYY.MM.DD HH24.MI.SS') as completed_at
+		SELECT 
+			tr.id, 
+			u.last_name, 
+			u.first_name, 
+			u.patronymic, 
+			u.email, 
+			COALESCE(pt.title, '[Удаленный тест]') as test_title,
+			COALESCE(pt.methodology_type, 'Неизвестно') as methodology_type,
+			tr.total_score, 
+			tr.max_possible_score, 
+			tr.percentage, 
+			tr.is_passed, 
+			tr.interpretation,
+			TO_CHAR(tr.completed_at AT TIME ZONE 'Europe/Moscow', 'YYYY.MM.DD HH24.MI.SS') as completed_at
 		FROM test_results tr
-		JOIN users u ON tr.user_id = u.id
-		JOIN psychological_tests pt ON tr.test_id = pt.id
+		LEFT JOIN users u ON tr.user_id = u.id
+		LEFT JOIN psychological_tests pt ON tr.test_id = pt.id
 		ORDER BY tr.completed_at DESC
 	`)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка получения результатов"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка получения результатов: " + err.Error()})
 		return
 	}
 	defer rows.Close()
@@ -373,6 +462,9 @@ func GetAllResults(c *gin.Context) {
 		}
 
 		methodologyLabel := getMethodologyLabel(result.MethodologyType)
+		if result.TestTitle == "[Удаленный тест]" {
+			methodologyLabel = "Удаленный тест"
+		}
 
 		results = append(results, map[string]interface{}{
 			"id":               result.ID,
@@ -464,7 +556,6 @@ func CreateTest(c *gin.Context) {
 	})
 }
 
-// Получение полной информации о тесте для редактирования
 // Получение полной информации о тесте для редактирования
 func GetTestForEdit(c *gin.Context) {
     testID, err := strconv.Atoi(c.Param("id"))

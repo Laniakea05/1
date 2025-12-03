@@ -36,7 +36,7 @@ func GetTests(c *gin.Context) {
 			MethodologyType string `json:"methodology_type"`
 		}
 		err := rows.Scan(&test.ID, &test.Title, &test.Description, &test.Instructions, 
-			&test.EstimatedTime, &test.PassThreshold, &test.MethodologyType)
+			&test.EstimatedTime, &test.PassThreshold, &test.MethodologyType) // Исправлено: MethodologyType
 		if err != nil {
 			continue
 		}
@@ -77,7 +77,7 @@ func GetTest(c *gin.Context) {
 		FROM psychological_tests 
 		WHERE id = $1 AND is_active = true
 	`, testID).Scan(&test.ID, &test.Title, &test.Description, &test.Instructions, 
-		&test.EstimatedTime, &test.PassThreshold, &test.MethodologyType)
+		&test.EstimatedTime, &test.PassThreshold, &test.MethodologyType) // Исправлено: MethodologyType
 
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Тест не найден"})
@@ -412,11 +412,18 @@ func SubmitTest(c *gin.Context) {
         return
     }
 
-    // Получаем название теста для передачи в результат
+    // Проверяем, существует ли тест и активен ли он
     var testTitle string
-    err = database.DB.QueryRow("SELECT title FROM psychological_tests WHERE id = $1", testID).Scan(&testTitle)
+    var isActive bool
+    err = database.DB.QueryRow("SELECT title, is_active FROM psychological_tests WHERE id = $1", testID).Scan(&testTitle, &isActive)
     if err != nil {
-        testTitle = "Психологическое тестирование"
+        c.JSON(http.StatusNotFound, gin.H{"error": "Тест не найден"})
+        return
+    }
+    
+    if !isActive {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Тест не доступен для прохождения"})
+        return
     }
 
     // Логируем для отладки

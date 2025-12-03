@@ -88,6 +88,26 @@ CREATE INDEX idx_user_answers_result_id ON user_answers(result_id);
 CREATE INDEX idx_test_results_completed_at ON test_results(completed_at);
 CREATE INDEX idx_users_is_blocked ON users(is_blocked);
 
+-- Обновляем ограничения внешних ключей для поддержки SET NULL
+ALTER TABLE user_answers 
+DROP CONSTRAINT IF EXISTS user_answers_option_id_fkey,
+DROP CONSTRAINT IF EXISTS user_answers_question_id_fkey,
+ADD CONSTRAINT user_answers_option_id_fkey 
+FOREIGN KEY (option_id) 
+REFERENCES question_options(id) 
+ON DELETE SET NULL,
+ADD CONSTRAINT user_answers_question_id_fkey 
+FOREIGN KEY (question_id) 
+REFERENCES test_questions(id) 
+ON DELETE SET NULL;
+
+ALTER TABLE test_results 
+DROP CONSTRAINT IF EXISTS test_results_test_id_fkey,
+ADD CONSTRAINT test_results_test_id_fkey 
+FOREIGN KEY (test_id) 
+REFERENCES psychological_tests(id) 
+ON DELETE SET NULL;
+
 -- Тест 1: Методика измерения ригидности (модифицированная для ИБ)
 INSERT INTO psychological_tests (title, description, instructions, estimated_time, pass_threshold, methodology_type) VALUES 
 ('Методика измерения ригидности',
