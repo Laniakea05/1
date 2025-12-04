@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -260,6 +259,8 @@
             }
 
             const question = testData.questions[index];
+            const questionOrder = question.order_index || (index + 1); // Используем order_index если есть
+            
             document.getElementById('questionNumber').textContent = index + 1;
             document.getElementById('questionText').textContent = question.question_text;
             
@@ -268,9 +269,9 @@
             
             question.options.forEach((option, optionIndex) => {
                 const optionDiv = document.createElement('div');
-                optionDiv.className = `option ${answers[question.id] === option.id ? 'selected' : ''}`;
-                optionDiv.textContent = option.text;
-                optionDiv.onclick = () => selectOption(question.id, option.id);
+                optionDiv.className = `option ${answers[questionOrder] === option.id ? 'selected' : ''}`;
+                optionDiv.textContent = option.text || option.option_text;
+                optionDiv.onclick = () => selectOption(questionOrder, option.id);
                 optionsContainer.appendChild(optionDiv);
             });
 
@@ -285,8 +286,8 @@
             document.getElementById('submitBtn').style.display = index === testData.questions.length - 1 ? 'block' : 'none';
         }
 
-        function selectOption(questionId, optionId) {
-            answers[questionId] = optionId;
+        function selectOption(questionOrder, optionId) {
+            answers[questionOrder] = optionId;
             loadQuestion(currentQuestionIndex); // Перезагружаем для обновления стилей
         }
 
@@ -321,6 +322,8 @@
             const submission = {
                 answers: answers
             };
+
+            console.log('Отправляемые ответы:', submission); // Для отладки
 
             // Создаем AbortController для таймаута
             const controller = new AbortController();
