@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -63,6 +62,12 @@
             outline: none;
             border-color: #3498db;
         }
+        input.error {
+            border-color: #e74c3c;
+        }
+        input.success {
+            border-color: #27ae60;
+        }
         button {
             width: 100%;
             padding: 14px;
@@ -100,6 +105,17 @@
             border-radius: 5px;
             text-align: center;
         }
+        .email-requirements {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        .validation-error {
+            color: #e74c3c;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -111,13 +127,15 @@
         <form id="loginForm">
             <div class="form-group">
                 <label>📧 Email:</label>
-                <input type="email" name="email" required placeholder="Введите ваш email">
+                <input type="email" name="email" required placeholder="Введите ваш email" id="email">
+                <div class="email-requirements">Только английские буквы, цифры и символы @._-</div>
+                <div class="validation-error" id="emailError">Email должен содержать только английские буквы</div>
             </div>
             <div class="form-group">
                 <label>🔒 Пароль:</label>
-                <input type="password" name="password" required placeholder="Введите пароль">
+                <input type="password" name="password" required placeholder="Введите пароль" id="password">
             </div>
-            <button type="submit">
+            <button type="submit" id="submitBtn">
                 <span>🚀</span>
                 Войти в систему
             </button>
@@ -138,17 +156,85 @@
             localStorage.removeItem('user');
         });
 
+        // Функция проверки на русские буквы
+        function containsRussianLetters(text) {
+            const russianRegex = /[а-яА-ЯёЁ]/;
+            return russianRegex.test(text);
+        }
+
+        // Функция проверки email на валидность
+        function validateEmail(email) {
+            const emailInput = document.getElementById('email');
+            const emailError = document.getElementById('emailError');
+            
+            if (!email || email.trim() === '') {
+                emailError.style.display = 'none';
+                emailInput.classList.remove('error', 'success');
+                return false;
+            }
+            
+            // Проверяем на русские буквы
+            if (containsRussianLetters(email)) {
+                emailError.textContent = '❌ Email не должен содержать русские буквы. Используйте только английские буквы, цифры и символы @._-';
+                emailError.style.display = 'block';
+                emailInput.classList.remove('success');
+                emailInput.classList.add('error');
+                return false;
+            }
+            
+            // Проверяем общий формат email
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                emailError.textContent = '❌ Неверный формат email. Пример: example@mail.ru';
+                emailError.style.display = 'block';
+                emailInput.classList.remove('success');
+                emailInput.classList.add('error');
+                return false;
+            }
+            
+            // Если все проверки пройдены
+            emailError.style.display = 'none';
+            emailInput.classList.remove('error');
+            emailInput.classList.add('success');
+            return true;
+        }
+
+        // Проверка email при вводе
+        document.getElementById('email').addEventListener('input', function(e) {
+            const email = e.target.value.trim();
+            validateEmail(email);
+        });
+
+        // Проверка email при потере фокуса
+        document.getElementById('email').addEventListener('blur', function(e) {
+            const email = e.target.value.trim();
+            validateEmail(email);
+        });
+
+        // Обработчик отправки формы
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
             const formData = new FormData(this);
+            const email = formData.get('email');
+            const password = formData.get('password');
+            
+            // Проверяем email перед отправкой
+            if (!validateEmail(email)) {
+                return;
+            }
+            
             const data = {
-                email: formData.get('email'),
-                password: formData.get('password')
+                email: email,
+                password: password
             };
 
             const messageDiv = document.getElementById('message');
+            const submitBtn = document.getElementById('submitBtn');
+            
             messageDiv.innerHTML = '<p style="color: #3498db;">⏳ Вход выполняется...</p>';
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span>⏳</span> Вход выполняется...';
 
             fetch('/api/auth/login', {
                 method: 'POST',
@@ -176,11 +262,29 @@
                     }, 1500);
                 } else {
                     messageDiv.innerHTML = `<p style="color: #e74c3c;">❌ ${data.error || 'Ошибка входа'}</p>`;
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<span>🚀</span> Войти в систему';
                 }
             })
             .catch(error => {
                 messageDiv.innerHTML = '<p style="color: #e74c3c;">❌ Ошибка сети или сервера</p>';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span>🚀</span> Войти в систему';
             });
+        });
+
+        // Дополнительная проверка при нажатии Enter
+        document.getElementById('email').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                validateEmail(this.value.trim());
+            }
+        });
+
+        document.getElementById('password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const email = document.getElementById('email').value.trim();
+                validateEmail(email);
+            }
         });
     </script>
 </body>

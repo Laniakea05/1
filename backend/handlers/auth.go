@@ -1,10 +1,11 @@
-
 package handlers
 
 import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"regexp"
+	"strings"
 	"psycho-test-system/database"
 	"psycho-test-system/models"
 	"psycho-test-system/utils"
@@ -67,14 +68,52 @@ func CreateTestUsers() {
 	fmt.Println("✅ Все тестовые пользователи обновлены с правильными паролями!")
 }
 
+// Функция проверки на русские буквы
+func containsRussianLetters(text string) bool {
+	re := regexp.MustCompile(`[а-яА-ЯёЁ]`)
+	return re.MatchString(text)
+}
+
+// Функция проверки формата email
+func isValidEmailFormat(email string) bool {
+	re := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+	return re.MatchString(email)
+}
+
+// Проверка валидности имени (только буквы, пробелы и дефисы)
+func isValidName(name string) bool {
+	re := regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s\-]+$`)
+	return re.MatchString(name)
+}
+
 // CheckEmail проверяет доступность email
 func CheckEmail(c *gin.Context) {
 	var checkReq struct {
-		Email string `json:"email" binding:"required,email"`
+		Email string `json:"email" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&checkReq); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный формат email"})
+		return
+	}
+
+	// Проверяем на русские буквы
+	if containsRussianLetters(checkReq.Email) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"available": false,
+			"error": "Email не должен содержать русские буквы. Используйте только английские буквы, цифры и символы @._-",
+			"email": checkReq.Email,
+		})
+		return
+	}
+
+	// Проверяем общий формат email
+	if !isValidEmailFormat(checkReq.Email) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"available": false,
+			"error": "Неверный формат email. Пример: example@mail.ru",
+			"email": checkReq.Email,
+		})
 		return
 	}
 
@@ -162,6 +201,44 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	// Проверяем email на русские буквы
+	if containsRussianLetters(registerReq.Email) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Email не должен содержать русские буквы. Используйте только английские буквы, цифры и символы @._-",
+		})
+		return
+	}
+
+	// Проверяем формат email
+	if !isValidEmailFormat(registerReq.Email) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Неверный формат email. Пример: example@mail.ru",
+		})
+		return
+	}
+
+	// Проверяем имена на валидность
+	if !isValidName(registerReq.LastName) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Фамилия должна содержать только буквы, пробелы и дефисы",
+		})
+		return
+	}
+
+	if !isValidName(registerReq.FirstName) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Имя должно содержать только буквы, пробелы и дефисы",
+		})
+		return
+	}
+
+	if registerReq.Patronymic != "" && !isValidName(registerReq.Patronymic) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Отчество должно содержать только буквы, пробелы и дефисы",
+		})
+		return
+	}
+
 	// Хешируем пароль ПРАВИЛЬНО
 	hashedPassword, err := utils.HashPassword(registerReq.Password)
 	if err != nil {
@@ -177,7 +254,12 @@ func Register(c *gin.Context) {
 	).Scan(&userID)
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Пользователь с таким email уже существует"})
+		// Проверяем, является ли ошибка нарушением уникальности email
+		if strings.Contains(err.Error(), "unique constraint") || strings.Contains(err.Error(), "duplicate key") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Пользователь с таким email уже существует"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка создания пользователя: " + err.Error()})
+		}
 		return
 	}
 

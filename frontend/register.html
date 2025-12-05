@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -129,6 +128,9 @@
         .email-status.taken {
             color: #e74c3c;
         }
+        .email-status.invalid {
+            color: #e74c3c;
+        }
         .name-fields {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -136,6 +138,12 @@
         }
         .full-width {
             grid-column: 1 / -1;
+        }
+        .validation-error {
+            color: #e74c3c;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
         }
     </style>
 </head>
@@ -151,20 +159,25 @@
                     <div>
                         <label>👤 Фамилия:</label>
                         <input type="text" name="last_name" required placeholder="Иванов" id="lastName">
+                        <div class="validation-error" id="lastNameError">Фамилия должна содержать только буквы</div>
                     </div>
                     <div>
                         <label>👤 Имя:</label>
                         <input type="text" name="first_name" required placeholder="Иван" id="firstName">
+                        <div class="validation-error" id="firstNameError">Имя должно содержать только буквы</div>
                     </div>
                     <div class="full-width">
                         <label>👤 Отчество:</label>
                         <input type="text" name="patronymic" placeholder="Иванович" id="patronymic">
+                        <div class="validation-error" id="patronymicError">Отчество должно содержать только буквы</div>
                     </div>
                 </div>
             </div>
             <div class="form-group">
                 <label>📧 Email:</label>
                 <input type="email" name="email" required placeholder="example@mail.ru" id="email">
+                <div class="requirements">Только английские буквы, цифры и символы @._-</div>
+                <div class="validation-error" id="emailError">Email должен содержать только английские буквы</div>
                 <div class="email-status" id="emailStatus"></div>
             </div>
             <div class="form-group">
@@ -175,6 +188,7 @@
             <div class="form-group">
                 <label>🔒 Подтверждение пароля:</label>
                 <input type="password" name="confirm_password" required placeholder="Повторите пароль" id="confirmPassword">
+                <div class="validation-error" id="passwordError">Пароли не совпадают</div>
             </div>
             <button type="submit" id="submitBtn">
                 <span>🚀</span>
@@ -200,25 +214,62 @@
 
         let emailCheckTimeout = null;
         let isEmailAvailable = false;
+        let isEmailValid = false;
+
+        // Функция проверки на русские буквы в email
+        function containsRussianLetters(text) {
+            const russianRegex = /[а-яА-ЯёЁ]/;
+            return russianRegex.test(text);
+        }
+
+        // Функция проверки на правильные символы в именах (только буквы и пробелы)
+        function isValidName(text) {
+            const nameRegex = /^[a-zA-Zа-яА-ЯёЁ\s\-]+$/;
+            return nameRegex.test(text);
+        }
 
         // Функция проверки email
         function checkEmailAvailability(email) {
             const emailStatus = document.getElementById('emailStatus');
             const emailInput = document.getElementById('email');
+            const emailError = document.getElementById('emailError');
             const submitBtn = document.getElementById('submitBtn');
 
-            if (!email || !isValidEmail(email)) {
+            // Сначала проверяем на русские буквы
+            if (containsRussianLetters(email)) {
                 emailStatus.style.display = 'none';
-                emailInput.classList.remove('success', 'error');
-                submitBtn.disabled = true;
+                emailError.textContent = 'Email должен содержать только английские буквы, цифры и символы @._-';
+                emailError.style.display = 'block';
+                emailInput.classList.remove('success');
+                emailInput.classList.add('error');
+                isEmailValid = false;
+                isEmailAvailable = false;
+                updateSubmitButton();
                 return;
             }
+
+            // Проверяем общий формат email
+            if (!isValidEmail(email)) {
+                emailStatus.style.display = 'none';
+                emailError.textContent = 'Неверный формат email. Пример: example@mail.ru';
+                emailError.style.display = 'block';
+                emailInput.classList.remove('success');
+                emailInput.classList.add('error');
+                isEmailValid = false;
+                isEmailAvailable = false;
+                updateSubmitButton();
+                return;
+            }
+
+            // Если все проверки пройдены, скрываем ошибку
+            emailError.style.display = 'none';
+            isEmailValid = true;
 
             // Показываем статус проверки
             emailStatus.textContent = '⏳ Проверяем email...';
             emailStatus.className = 'email-status checking';
             emailStatus.style.display = 'block';
-            emailInput.classList.remove('success', 'error');
+            emailInput.classList.remove('error');
             submitBtn.disabled = true;
 
             // Отправляем запрос на проверку
@@ -258,7 +309,49 @@
         // Функция валидации email
         function isValidEmail(email) {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            return emailRegex.test(email);
+            return emailRegex.test(email) && !containsRussianLetters(email);
+        }
+
+        // Функция валидации имени
+        function validateName(fieldId, errorId) {
+            const field = document.getElementById(fieldId);
+            const error = document.getElementById(errorId);
+            const value = field.value.trim();
+
+            if (value === '') {
+                error.style.display = 'none';
+                field.classList.remove('error');
+                return true;
+            }
+
+            if (!isValidName(value)) {
+                error.textContent = 'Должно содержать только буквы, пробелы и дефисы';
+                error.style.display = 'block';
+                field.classList.add('error');
+                return false;
+            }
+
+            error.style.display = 'none';
+            field.classList.remove('error');
+            return true;
+        }
+
+        // Функция валидации паролей
+        function validatePasswords() {
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const error = document.getElementById('passwordError');
+
+            if (password !== confirmPassword && confirmPassword !== '') {
+                error.textContent = 'Пароли не совпадают';
+                error.style.display = 'block';
+                document.getElementById('confirmPassword').classList.add('error');
+                return false;
+            }
+
+            error.style.display = 'none';
+            document.getElementById('confirmPassword').classList.remove('error');
+            return true;
         }
 
         // Функция обновления состояния кнопки отправки
@@ -269,11 +362,22 @@
             const password = document.getElementById('password').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
             
+            // Проверяем все валидации
+            const isLastNameValid = validateName('lastName', 'lastNameError');
+            const isFirstNameValid = validateName('firstName', 'firstNameError');
+            const isPatronymicValid = validateName('patronymic', 'patronymicError');
+            const isPasswordValid = validatePasswords();
+            
             const isFormValid = lastName && 
                               firstName && 
                               password.length >= 6 && 
                               password === confirmPassword && 
-                              isEmailAvailable;
+                              isEmailAvailable && 
+                              isEmailValid &&
+                              isLastNameValid &&
+                              isFirstNameValid &&
+                              isPatronymicValid &&
+                              isPasswordValid;
 
             submitBtn.disabled = !isFormValid;
         }
@@ -304,9 +408,10 @@
         document.getElementById('registerForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            if (!isEmailAvailable) {
+            // Проверяем все валидации перед отправкой
+            if (!isEmailAvailable || !isEmailValid) {
                 document.getElementById('message').innerHTML = 
-                    '<p style="color: #e74c3c;">❌ Пожалуйста, используйте другой email</p>';
+                    '<p style="color: #e74c3c;">❌ Пожалуйста, исправьте ошибки в email</p>';
                 return;
             }
 
@@ -320,8 +425,16 @@
                 return;
             }
 
+            // Проверяем email на русские буквы еще раз на всякий случай
+            const email = formData.get('email');
+            if (containsRussianLetters(email)) {
+                document.getElementById('message').innerHTML = 
+                    '<p style="color: #e74c3c;">❌ Email не должен содержать русские буквы</p>';
+                return;
+            }
+
             const data = {
-                email: formData.get('email'),
+                email: email,
                 password: password,
                 last_name: formData.get('last_name'),
                 first_name: formData.get('first_name'),
@@ -363,6 +476,14 @@
                 messageDiv.innerHTML = '<p style="color: #e74c3c;">❌ Ошибка сети или сервера</p>';
                 submitBtn.disabled = false;
             });
+        });
+
+        // Добавляем проверку при потере фокуса (для мгновенной обратной связи)
+        document.getElementById('email').addEventListener('blur', function(e) {
+            const email = e.target.value.trim();
+            if (email) {
+                checkEmailAvailability(email);
+            }
         });
     </script>
 </body>
